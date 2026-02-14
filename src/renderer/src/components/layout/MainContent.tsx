@@ -1,6 +1,7 @@
 import React from 'react'
 import { useUIStore } from '../../store/uiStore'
 import { format } from 'date-fns'
+import { DayView } from '../timeline/DayView'
 
 export function MainContent() {
   const { currentView, currentDate } = useUIStore()
@@ -14,11 +15,7 @@ export function MainContent() {
           </h2>
         </div>
 
-        {currentView === 'day' && (
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6">
-            <p className="text-gray-500 dark:text-gray-400">日视图 - 时间轴(待实现)</p>
-          </div>
-        )}
+        {currentView === 'day' && <DayView />}
 
         {currentView === 'week' && (
           <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6">
