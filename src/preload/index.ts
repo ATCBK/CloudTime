@@ -1,8 +1,16 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { Task } from '../shared/types'
 
 const api = {
-  // 占位符,后续添加 IPC 方法
-  ping: () => ipcRenderer.invoke('ping'),
+  // 任务操作
+  tasks: {
+    getAll: () => ipcRenderer.invoke('tasks:getAll'),
+    getByDate: (date: string) => ipcRenderer.invoke('tasks:getByDate', date),
+    getUnscheduled: () => ipcRenderer.invoke('tasks:getUnscheduled'),
+    create: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => ipcRenderer.invoke('tasks:create', task),
+    update: (id: string, updates: Partial<Task>) => ipcRenderer.invoke('tasks:update', id, updates),
+    delete: (id: string) => ipcRenderer.invoke('tasks:delete', id),
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)
