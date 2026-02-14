@@ -1,9 +1,9 @@
 import React from 'react'
 import { useUIStore } from '../../store/uiStore'
-import { format } from 'date-fns'
+import { InspirationPanel } from '../inspiration/InspirationPanel'
 
 export function RightPanel() {
-  const { rightPanelContent, currentDate } = useUIStore()
+  const { rightPanelContent } = useUIStore()
 
   return (
     <div className="w-80 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 flex flex-col">
@@ -16,20 +16,7 @@ export function RightPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        {rightPanelContent === 'inspiration' && (
-          <div className="space-y-4">
-            <button className="w-full py-2 px-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 hover:border-blue-500 hover:text-blue-500">
-              + 添加灵感
-            </button>
-
-            <div className="space-y-2">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {format(new Date(currentDate), 'yyyy年MM月dd日')}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">暂无灵感记录</p>
-            </div>
-          </div>
-        )}
+        {rightPanelContent === 'inspiration' && <InspirationPanel />}
 
         {rightPanelContent === 'taskDetail' && (
           <div className="space-y-4">
