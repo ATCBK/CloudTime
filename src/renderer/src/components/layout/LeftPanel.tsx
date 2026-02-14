@@ -1,5 +1,6 @@
 import React from 'react'
 import { useUIStore } from '../../store/uiStore'
+import { TodoList } from '../todo/TodoList'
 
 export function LeftPanel() {
   const { leftPanelOpen, leftPanelContent } = useUIStore()
@@ -19,14 +20,7 @@ export function LeftPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        {leftPanelContent === 'todo' && (
-          <div className="space-y-2">
-            <p className="text-sm text-gray-500 dark:text-gray-400">暂无待办任务</p>
-            <button className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-              + 新建任务
-            </button>
-          </div>
-        )}
+        {leftPanelContent === 'todo' && <TodoList />}
 
         {leftPanelContent === 'note' && (
           <div className="space-y-2">
