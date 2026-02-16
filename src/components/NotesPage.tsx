@@ -134,7 +134,9 @@ const DEFAULT_TOOLBAR_ORDER = [
   "italic",
   "delete"
 ] as const;
-const SCROLLBAR_IDLE_MS = 80;
+const CAPSULE_IDLE_MS = 320;
+const CAPSULE_MIN_SIZE = 44;
+const CAPSULE_TRACK_PADDING = 6;
 
 function normalizeToolbarOrder(order: string[]): string[] {
   const allowed = new Set<string>(DEFAULT_TOOLBAR_ORDER);
@@ -400,7 +402,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
   const pendingCommentSelectionRef = useRef<{ range: Range; quote: string } | null>(null);
   const pendingSaveRef = useRef<{ noteId: string; html: string } | null>(null);
-  const scrollbarTimersRef = useRef<Map<HTMLElement, number>>(new Map());
+  const capsuleTimersRef = useRef<Map<HTMLElement, number>>(new Map());
 
   const [commentsByNote, setCommentsByNote] = useLocalStorageState<Record<string, NoteComment[]>>("cloudo.notes.commentsByNote", {});
 
@@ -1320,40 +1322,99 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
   useEffect(() => {
     return () => {
       if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
-      for (const timer of scrollbarTimersRef.current.values()) window.clearTimeout(timer);
-      scrollbarTimersRef.current.clear();
+      for (const timer of capsuleTimersRef.current.values()) window.clearTimeout(timer);
+      capsuleTimersRef.current.clear();
     };
   }, []);
 
-  const activateFadeScrollbar = useCallback((target: EventTarget | null): void => {
-    if (!(target instanceof HTMLElement)) return;
-    const host = target.closest(".fade-scrollbar");
-    if (!(host instanceof HTMLElement)) return;
-    host.classList.add("scrollbar-active");
+  const syncCapsuleScrollbar = useCallback((host: HTMLElement): void => {
+    const scrollRange = host.scrollHeight - host.clientHeight;
+    if (host.clientHeight <= 0 || scrollRange <= 1) {
+      host.style.setProperty("--capsule-visible", "0");
+      host.style.setProperty("--capsule-top", "0px");
+      host.style.setProperty("--capsule-height", "0px");
+      return;
+    }
+    const trackHeight = Math.max(host.clientHeight - CAPSULE_TRACK_PADDING * 2, 0);
+    const thumbHeight = Math.min(
+      trackHeight,
+      Math.max(CAPSULE_MIN_SIZE, Math.round((host.clientHeight / host.scrollHeight) * trackHeight))
+    );
+    const maxTop = Math.max(trackHeight - thumbHeight, 0);
+    const thumbTop = CAPSULE_TRACK_PADDING + Math.round((host.scrollTop / scrollRange) * maxTop);
+    const visualTop = thumbTop + host.scrollTop;
+    host.style.setProperty("--capsule-visible", "1");
+    host.style.setProperty("--capsule-top", `${visualTop}px`);
+    host.style.setProperty("--capsule-height", `${thumbHeight}px`);
+  }, []);
 
-    const timers = scrollbarTimersRef.current;
+  const syncAllCapsuleScrollbars = useCallback((): void => {
+    const scope = workspaceRef.current;
+    if (!scope) return;
+    scope.querySelectorAll<HTMLElement>(".capsule-scrollbar").forEach((host) => syncCapsuleScrollbar(host));
+  }, [syncCapsuleScrollbar]);
+
+  const activateCapsuleScrollbar = useCallback((host: HTMLElement): void => {
+    host.classList.add("capsule-active");
+    const timers = capsuleTimersRef.current;
     const prev = timers.get(host);
     if (typeof prev === "number") window.clearTimeout(prev);
     const timer = window.setTimeout(() => {
-      host.classList.remove("scrollbar-active");
+      host.classList.remove("capsule-active");
       timers.delete(host);
-    }, SCROLLBAR_IDLE_MS);
+    }, CAPSULE_IDLE_MS);
     timers.set(host, timer);
   }, []);
 
-  const onFadeScrollbarActivity = (event: React.SyntheticEvent<HTMLElement>): void => {
-    activateFadeScrollbar(event.target);
-  };
+  const onCapsuleScrollbarActivity = useCallback((event: Event): void => {
+    if (!(event.target instanceof HTMLElement)) return;
+    const host = event.target.closest(".capsule-scrollbar");
+    if (!(host instanceof HTMLElement)) return;
+    syncCapsuleScrollbar(host);
+    activateCapsuleScrollbar(host);
+  }, [activateCapsuleScrollbar, syncCapsuleScrollbar]);
 
-  const onFadeScrollbarIdle = (event: React.SyntheticEvent<HTMLElement>): void => {
-    if (!(event.currentTarget instanceof HTMLElement)) return;
-    event.currentTarget.classList.remove("scrollbar-active");
-    const timer = scrollbarTimersRef.current.get(event.currentTarget);
-    if (typeof timer === "number") {
-      window.clearTimeout(timer);
-      scrollbarTimersRef.current.delete(event.currentTarget);
+  useEffect(() => {
+    const scope = workspaceRef.current;
+    if (!scope) return;
+    scope.addEventListener("scroll", onCapsuleScrollbarActivity, true);
+    scope.addEventListener("wheel", onCapsuleScrollbarActivity, true);
+    scope.addEventListener("mousedown", onCapsuleScrollbarActivity, true);
+    scope.addEventListener("pointerdown", onCapsuleScrollbarActivity, true);
+    scope.addEventListener("touchstart", onCapsuleScrollbarActivity, true);
+    return () => {
+      scope.removeEventListener("scroll", onCapsuleScrollbarActivity, true);
+      scope.removeEventListener("wheel", onCapsuleScrollbarActivity, true);
+      scope.removeEventListener("mousedown", onCapsuleScrollbarActivity, true);
+      scope.removeEventListener("pointerdown", onCapsuleScrollbarActivity, true);
+      scope.removeEventListener("touchstart", onCapsuleScrollbarActivity, true);
+    };
+  }, [onCapsuleScrollbarActivity]);
+
+  useEffect(() => {
+    syncAllCapsuleScrollbars();
+    const onResize = (): void => syncAllCapsuleScrollbars();
+    window.addEventListener("resize", onResize);
+    if (typeof ResizeObserver === "undefined") {
+      return () => {
+        window.removeEventListener("resize", onResize);
+      };
     }
-  };
+    const observer = new ResizeObserver(() => syncAllCapsuleScrollbars());
+    const scope = workspaceRef.current;
+    if (scope) {
+      observer.observe(scope);
+      scope.querySelectorAll<HTMLElement>(".capsule-scrollbar").forEach((host) => observer.observe(host));
+    }
+    return () => {
+      window.removeEventListener("resize", onResize);
+      observer.disconnect();
+    };
+  }, [syncAllCapsuleScrollbars, currentNoteId, editorMode, focusMode, treePanelCollapsed, tocPanelCollapsed, commentPanelCollapsed]);
+
+  useEffect(() => {
+    syncAllCapsuleScrollbars();
+  }, [syncAllCapsuleScrollbars, currentNoteId, editorMode, focusMode, treePanelCollapsed, tocPanelCollapsed, commentPanelCollapsed]);
 
   useEffect(() => {
     syncActiveTocByScroll();
@@ -1579,15 +1640,9 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
           {!treePanelCollapsed && !focusMode ? (
             <div
               ref={treeContainerRef}
-              className="tree-container clean fade-scrollbar"
+              className="tree-container clean capsule-scrollbar"
               tabIndex={-1}
               onContextMenu={openTreeAreaContextMenu}
-              onScroll={onFadeScrollbarActivity}
-              onWheel={onFadeScrollbarActivity}
-              onPointerDown={onFadeScrollbarActivity}
-              onMouseDown={onFadeScrollbarActivity}
-              onTouchStart={onFadeScrollbarActivity}
-              onMouseLeave={onFadeScrollbarIdle}
             >
               {renderTree(folders)}
             </div>
@@ -1660,14 +1715,8 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
               {!tocPanelCollapsed && !focusMode ? (
                 <div
                   ref={tocTreeRef}
-                  className="toc-tree fade-scrollbar"
+                  className="toc-tree capsule-scrollbar"
                   tabIndex={-1}
-                  onScroll={onFadeScrollbarActivity}
-                  onWheel={onFadeScrollbarActivity}
-                  onPointerDown={onFadeScrollbarActivity}
-                  onMouseDown={onFadeScrollbarActivity}
-                  onTouchStart={onFadeScrollbarActivity}
-                  onMouseLeave={onFadeScrollbarIdle}
                 >
                   {tocTree.length > 0 ? renderTocTree(tocTree) : <div className="toc-empty">当前文档暂无 H1-H4 标题</div>}
                 </div>
@@ -1678,20 +1727,12 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
             ) : (
               <div />
             )}
-            <div
-              className="notes-editor-main fade-scrollbar"
-              onWheelCapture={onFadeScrollbarActivity}
-              onPointerDownCapture={onFadeScrollbarActivity}
-              onMouseDownCapture={onFadeScrollbarActivity}
-              onTouchStartCapture={onFadeScrollbarActivity}
-              onScrollCapture={onFadeScrollbarActivity}
-              onMouseLeave={onFadeScrollbarIdle}
-            >
+            <div className="notes-editor-main capsule-scrollbar">
               <div className="notes-editor-canvas">
                 {editorMode === "edit" ? (
                   <div
                     ref={editorRef}
-                    className="wysiwyg-editor clean fade-scrollbar"
+                    className="wysiwyg-editor clean capsule-scrollbar"
                     contentEditable
                     spellCheck={false}
                     autoCorrect="off"
@@ -1699,12 +1740,6 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
                     suppressContentEditableWarning
                     onInput={onEditorInput}
                     onPaste={onEditorPaste}
-                    onScroll={onFadeScrollbarActivity}
-                    onWheel={onFadeScrollbarActivity}
-                    onPointerDown={onFadeScrollbarActivity}
-                    onMouseDown={onFadeScrollbarActivity}
-                    onTouchStart={onFadeScrollbarActivity}
-                    onBlur={onFadeScrollbarIdle}
                     onMouseUp={updateSelectionMenu}
                     onKeyUp={updateSelectionMenu}
                     onContextMenu={openSelectionContextMenu}
@@ -1712,14 +1747,8 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
                 ) : (
                   <article
                     ref={previewRef}
-                    className="wysiwyg-preview clean fade-scrollbar"
+                    className="wysiwyg-preview clean capsule-scrollbar"
                     dangerouslySetInnerHTML={{ __html: sanitizedCurrentHtml }}
-                    onScroll={onFadeScrollbarActivity}
-                    onWheel={onFadeScrollbarActivity}
-                    onPointerDown={onFadeScrollbarActivity}
-                    onMouseDown={onFadeScrollbarActivity}
-                    onTouchStart={onFadeScrollbarActivity}
-                    onMouseLeave={onFadeScrollbarIdle}
                   />
                 )}
               </div>
@@ -1760,13 +1789,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
                     <button type="button" className="tiny-btn" onClick={addComment}>发布</button>
                   </div>
                   <div
-                    className="comment-list fade-scrollbar"
-                    onScroll={onFadeScrollbarActivity}
-                    onWheel={onFadeScrollbarActivity}
-                    onPointerDown={onFadeScrollbarActivity}
-                    onMouseDown={onFadeScrollbarActivity}
-                    onTouchStart={onFadeScrollbarActivity}
-                    onMouseLeave={onFadeScrollbarIdle}
+                    className="comment-list capsule-scrollbar"
                   >
                     {currentComments.length === 0 ? <div className="comment-empty">暂无评论</div> : null}
                     {currentComments.map((item) => (

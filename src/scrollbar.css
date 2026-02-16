@@ -1,0 +1,58 @@
+/* Notes page scrollbar: thin capsule indicator */
+
+.notes-page-clean .capsule-scrollbar {
+  position: relative;
+  --capsule-visible: 0;
+  --capsule-top: 0px;
+  --capsule-height: 0px;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none;
+}
+
+.notes-page-clean .capsule-scrollbar::-webkit-scrollbar,
+.notes-page-clean .capsule-scrollbar::-webkit-scrollbar-button,
+.notes-page-clean .capsule-scrollbar::-webkit-scrollbar-track,
+.notes-page-clean .capsule-scrollbar::-webkit-scrollbar-thumb,
+.notes-page-clean .capsule-scrollbar::-webkit-scrollbar-corner {
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+.notes-page-clean .capsule-scrollbar::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  top: var(--capsule-top);
+  width: 8px;
+  height: var(--capsule-height);
+  border-radius: 9999px;
+  background: rgba(186, 191, 199, 0.95);
+  opacity: var(--capsule-visible);
+  pointer-events: none;
+  z-index: 4;
+  transition: background-color 140ms ease, opacity 140ms ease;
+}
+
+.notes-page-clean .capsule-scrollbar.capsule-active::after,
+.notes-page-clean .capsule-scrollbar:hover::after,
+.notes-page-clean .capsule-scrollbar:focus-within::after {
+  background: rgba(157, 164, 176, 0.98);
+}
+
+/* Force editor/preview as the only vertical scroll host for正文. */
+.notes-page-clean .notes-editor-main {
+  overflow: hidden !important;
+}
+
+.notes-page-clean .notes-editor-canvas {
+  min-height: 0 !important;
+  height: 100% !important;
+}
+
+.notes-page-clean .wysiwyg-editor.clean.capsule-scrollbar,
+.notes-page-clean .wysiwyg-preview.clean.capsule-scrollbar {
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: auto !important;
+}

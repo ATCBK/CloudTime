@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scrollbar Preview</title>
+  <style>
+    :root {
+      --bg: #f3f5f9;
+      --panel: #ffffff;
+      --line: #e5e9f3;
+      --text: #2f3750;
+      --muted: #7a859f;
+      --sb-width: 4px;
+      --sb-right: 3px;
+      --sb-thumb-idle: rgba(178, 184, 196, 0.68);
+      --sb-thumb-active: rgba(144, 151, 166, 0.98);
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      font-family: "Microsoft YaHei", "Noto Sans SC", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    .page {
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .head {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 10px;
+    }
+
+    .panel {
+      min-height: 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: 40px 1fr;
+    }
+
+    .title {
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+      color: #5f6882;
+    }
+
+    .scroller {
+      min-height: 0;
+      overflow: auto;
+      padding: 10px 0;
+      position: relative;
+      --sb-visible: 0;
+      --sb-top: 4px;
+      --sb-height: 40px;
+      --sb-opacity: 0.72;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .scroller::-webkit-scrollbar,
+    .scroller::-webkit-scrollbar-button,
+    .scroller::-webkit-scrollbar-button:single-button,
+    .scroller::-webkit-scrollbar-button:double-button,
+    .scroller::-webkit-scrollbar-button:increment,
+    .scroller::-webkit-scrollbar-button:decrement,
+    .scroller::-webkit-scrollbar-button:start,
+    .scroller::-webkit-scrollbar-button:end,
+    .scroller::-webkit-scrollbar-track,
+    .scroller::-webkit-scrollbar-thumb,
+    .scroller::-webkit-scrollbar-corner {
+      width: 0;
+      height: 0;
+      background: transparent;
+    }
+
+    .scroller::after {
+      content: "";
+      position: absolute;
+      right: var(--sb-right);
+      top: var(--sb-top);
+      width: var(--sb-width);
+      height: var(--sb-height);
+      border-radius: 9999px;
+      background: var(--sb-thumb-idle);
+      opacity: calc(var(--sb-visible) * var(--sb-opacity));
+      pointer-events: none;
+      transition: background-color 140ms ease, opacity 140ms ease;
+      z-index: 3;
+    }
+
+    .scroller:hover::after,
+    .scroller:focus-within::after,
+    .scroller.scrollbar-active::after {
+      background: var(--sb-thumb-active);
+      opacity: calc(var(--sb-visible) * 1);
+    }
+
+    .toc-item {
+      height: 34px;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      color: #5f6882;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .toc-item.active {
+      background: #e8efff;
+      color: #2f3f70;
+      border-radius: 8px;
+      margin: 0 6px;
+    }
+
+    .article {
+      padding: 12px 18px 80px;
+      line-height: 1.75;
+      font-size: 16px;
+    }
+
+    h2 {
+      margin: 18px 0 10px;
+      font-size: 32px;
+      line-height: 1.25;
+    }
+
+    p { margin: 0 0 12px; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="head">预览规则: 轨道 10px，可见条内缩为细胶囊；仅滚动/拖动时显示，停止后立即淡出。</div>
+    <section class="workspace">
+      <article class="panel">
+        <div class="title">目录预览</div>
+        <div id="toc" class="scroller">
+          <div class="toc-item active">1. 项目概况（必须继承）</div>
+          <div class="toc-item">2. 服务部署目录（固定）</div>
+          <div class="toc-item">3. 数据库连接信息</div>
+          <div class="toc-item">4. OSS / 域名外链</div>
+          <div class="toc-item">5. 短信接口能力</div>
+          <div class="toc-item">6. 微信登录 / 小程序</div>
+          <div class="toc-item">7. 关键接口现状</div>
+          <div class="toc-item">8. 数据写入与换绑</div>
+          <div class="toc-item">9. 常见故障与排查</div>
+          <div class="toc-item">10. 目标约束与说明</div>
+          <div class="toc-item">11. 目录树行为补充</div>
+          <div class="toc-item">12. 评论与批注交互</div>
+          <div class="toc-item">13. 文档风格统一约束</div>
+          <div class="toc-item">14. 预览模式与编辑模式</div>
+          <div class="toc-item">15. 接口异常时降级说明</div>
+          <div class="toc-item">16. 发布流程与回滚策略</div>
+          <div class="toc-item">17. 组件复用边界</div>
+          <div class="toc-item">18. 测试策略与覆盖要求</div>
+          <div class="toc-item">19. 性能优化记录</div>
+          <div class="toc-item">20. 版本演进说明</div>
+        </div>
+      </article>
+      <article class="panel">
+        <div class="title">正文预览</div>
+        <div id="article" class="scroller">
+          <div class="article">
+            <h2>2. 服务部署 / 目录（固定）</h2>
+            <p>这一页用于单独确认滚动条视觉，不受项目其他样式覆盖影响。你可以滚动正文和左侧目录，检查是否是“细胶囊”而不是长方形。</p>
+            <p>目标效果: 滚动时显示淡灰色胶囊条，停止后立即淡出隐藏。轨道保持透明，无上下箭头按钮。</p>
+            <p>如果你觉得还偏粗，可以把透明边框从 3px 调成 4px；如果觉得太细，把边框调回 2px。</p>
+            <p>本预览页是独立 HTML，确认后我会把同一套参数回填到 `src/scrollbar.css`。</p>
+            <p>下面是占位正文，用于制造足够滚动高度。</p>
+            <p>段落 1：系统接口遵循统一响应结构，字段规范见约束文档。</p>
+            <p>段落 2：所有路径与命名需保持一致，避免跨端歧义。</p>
+            <p>段落 3：UI 行为应稳定，可预测，不受 hover 偶发状态影响。</p>
+            <p>段落 4：滚动条为交互反馈，不应成为视觉负担。</p>
+            <p>段落 5：评论锚点使用内联高亮并支持回跳。</p>
+            <p>段落 6：目录树和正文区样式应采用同一 token。</p>
+            <p>段落 7：对于长文本，优先换行，避免横向滚动。</p>
+            <p>段落 8：预览模式与编辑模式尽量保持布局一致。</p>
+            <p>段落 9：当面板折叠时，滚动逻辑需安全退出。</p>
+            <p>段落 10：避免多份重复样式造成覆盖冲突。</p>
+            <p>段落 11：样式来源尽量单一，便于维护和回归。</p>
+            <p>段落 12：交互定时器应在卸载时清理。</p>
+            <p>段落 13：支持鼠标滚轮、触摸、拖拽等触发。</p>
+            <p>段落 14：视觉参考遵循“细胶囊、低存在感”。</p>
+            <p>段落 15：以上内容仅作预览，不会影响主站。</p>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const IDLE_MS = 520;
+    const timers = new WeakMap();
+
+    function syncScrollbar(host) {
+      if (!host) return;
+      const scrollRange = host.scrollHeight - host.clientHeight;
+      if (host.clientHeight <= 0 || scrollRange <= 1) {
+        host.style.setProperty("--sb-visible", "0");
+        host.style.setProperty("--sb-top", "4px");
+        host.style.setProperty("--sb-height", "0px");
+        return;
+      }
+      const trackPadding = 4;
+      const trackHeight = Math.max(host.clientHeight - trackPadding * 2, 0);
+      const minThumbHeight = 26;
+      const thumbHeight = Math.min(
+        trackHeight,
+        Math.max(minThumbHeight, Math.round((host.clientHeight / host.scrollHeight) * trackHeight))
+      );
+      const travel = Math.max(trackHeight - thumbHeight, 0);
+      const thumbTop = trackPadding + Math.round((host.scrollTop / scrollRange) * travel);
+      host.style.setProperty("--sb-visible", "1");
+      host.style.setProperty("--sb-top", `${thumbTop}px`);
+      host.style.setProperty("--sb-height", `${thumbHeight}px`);
+    }
+
+    function activate(host) {
+      if (!host) return;
+      syncScrollbar(host);
+      host.classList.add("scrollbar-active");
+      const oldTimer = timers.get(host);
+      if (oldTimer) window.clearTimeout(oldTimer);
+      const timer = window.setTimeout(() => {
+        syncScrollbar(host);
+        host.classList.remove("scrollbar-active");
+        timers.delete(host);
+      }, IDLE_MS);
+      timers.set(host, timer);
+    }
+
+    document.querySelectorAll(".scroller").forEach((el) => {
+      syncScrollbar(el);
+      ["scroll", "wheel", "pointerdown", "mousedown", "touchstart"].forEach((evt) => {
+        el.addEventListener(evt, () => activate(el), { passive: true });
+      });
+      el.addEventListener("mouseleave", () => {
+        syncScrollbar(el);
+        el.classList.remove("scrollbar-active");
+        const oldTimer = timers.get(el);
+        if (oldTimer) window.clearTimeout(oldTimer);
+      });
+    });
+
+    window.addEventListener("resize", () => {
+      document.querySelectorAll(".scroller").forEach((el) => syncScrollbar(el));
+    });
+
+    window.setInterval(() => {
+      document.querySelectorAll(".scroller").forEach((el) => syncScrollbar(el));
+    }, 180);
+  </script>
+</body>
+</html>
