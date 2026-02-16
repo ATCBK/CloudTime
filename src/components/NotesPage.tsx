@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlignCenter,
   AlignLeft,
@@ -19,6 +19,7 @@ import {
   List,
   ListOrdered,
   Maximize2,
+  MessageSquarePlus,
   Minimize2,
   RemoveFormatting,
   Underline,
@@ -96,6 +97,7 @@ interface NoteComment {
   id: string;
   text: string;
   createdAt: number;
+  quote?: string;
 }
 
 interface TocHeadingNode {
@@ -132,6 +134,7 @@ const DEFAULT_TOOLBAR_ORDER = [
   "italic",
   "delete"
 ] as const;
+const SCROLLBAR_IDLE_MS = 80;
 
 function normalizeToolbarOrder(order: string[]): string[] {
   const allowed = new Set<string>(DEFAULT_TOOLBAR_ORDER);
@@ -162,6 +165,30 @@ function ensureMdFileName(raw: string): string {
 
 function stripHtml(input: string): string {
   return input.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function sanitizeUnsupportedHtml(input: string): string {
+  if (!input || typeof window === "undefined") return input;
+  const parser = new window.DOMParser();
+  const doc = parser.parseFromString(input, "text/html");
+  doc.querySelectorAll("input,img").forEach((node) => node.remove());
+  return doc.body.innerHTML;
+}
+
+function removeCommentAnchorFromHtml(input: string, commentId: string): string {
+  if (!input || typeof window === "undefined") return input;
+  const parser = new window.DOMParser();
+  const doc = parser.parseFromString(input, "text/html");
+  const anchors = Array.from(doc.querySelectorAll(".inline-comment-highlight"));
+  for (const node of anchors) {
+    const el = node as HTMLElement;
+    if (el.dataset.commentId !== commentId) continue;
+    const parent = el.parentNode;
+    if (!parent) continue;
+    while (el.firstChild) parent.insertBefore(el.firstChild, el);
+    parent.removeChild(el);
+  }
+  return doc.body.innerHTML;
 }
 
 function createInitialFolders(notes: NoteDocument[]): FolderNode[] {
@@ -371,6 +398,9 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
   const treeContainerRef = useRef<HTMLDivElement>(null);
   const tocTreeRef = useRef<HTMLDivElement>(null);
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
+  const pendingCommentSelectionRef = useRef<{ range: Range; quote: string } | null>(null);
+  const pendingSaveRef = useRef<{ noteId: string; html: string } | null>(null);
+  const scrollbarTimersRef = useRef<Map<HTMLElement, number>>(new Map());
 
   const [commentsByNote, setCommentsByNote] = useLocalStorageState<Record<string, NoteComment[]>>("cloudo.notes.commentsByNote", {});
 
@@ -393,7 +423,8 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
   const computedTocDividerWidth = focusMode ? 0 : 6;
   const computedCommentPaneWidth = focusMode ? 0 : (commentPanelCollapsed ? 40 : commentPaneWidth);
   const computedCommentDividerWidth = focusMode ? 0 : 6;
-  const tocTree = useMemo(() => parseTocHeadings(currentNote?.contentHtml ?? ""), [currentNote?.contentHtml]);
+  const sanitizedCurrentHtml = useMemo(() => sanitizeUnsupportedHtml(currentNote?.contentHtml ?? "<p></p>"), [currentNote?.contentHtml]);
+  const tocTree = useMemo(() => parseTocHeadings(sanitizedCurrentHtml), [sanitizedCurrentHtml]);
   const tocFlat = useMemo(() => {
     const list: TocHeadingNode[] = [];
     const walk = (nodes: TocHeadingNode[]): void => {
@@ -457,10 +488,18 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
 
   useEffect(() => {
     if (!editorRef.current || !currentNote || editorMode !== "edit") return;
-    if (editorRef.current.innerHTML !== currentNote.contentHtml) {
-      editorRef.current.innerHTML = currentNote.contentHtml;
+    if (editorRef.current.innerHTML !== sanitizedCurrentHtml) {
+      editorRef.current.innerHTML = sanitizedCurrentHtml;
     }
-  }, [currentNote, editorMode]);
+  }, [currentNote, editorMode, sanitizedCurrentHtml]);
+
+  useEffect(() => {
+    if (!currentNote) return;
+    if (sanitizedCurrentHtml === currentNote.contentHtml) return;
+    setNoteList((prev) =>
+      prev.map((note) => (note.id === currentNote.id ? { ...note, contentHtml: sanitizedCurrentHtml, updatedAt: Date.now() } : note))
+    );
+  }, [currentNote, sanitizedCurrentHtml, setNoteList]);
 
   useEffect(() => {
     const close = (): void => {
@@ -682,10 +721,20 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     updateFormatState();
   };
 
+  const flushPendingSave = useCallback((): void => {
+    const pending = pendingSaveRef.current;
+    if (!pending) return;
+    setNoteList((prev) =>
+      prev.map((n) => (n.id === pending.noteId ? { ...n, contentHtml: pending.html, updatedAt: Date.now() } : n))
+    );
+    pendingSaveRef.current = null;
+    setSaveText("已保存");
+  }, [setNoteList]);
+
   const updateCurrentNote = (html: string): void => {
     if (!currentNote) return;
-    setNoteList((prev) => prev.map((n) => (n.id === currentNote.id ? { ...n, contentHtml: html, updatedAt: Date.now() } : n)));
-    setSaveText("已保存");
+    pendingSaveRef.current = { noteId: currentNote.id, html: sanitizeUnsupportedHtml(html) };
+    setSaveText("编辑中，5秒自动保存");
   };
 
   const runCommand = (command: string, value?: string): void => {
@@ -946,6 +995,31 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     updateFormatState();
   };
 
+  const onEditorPaste = (event: React.ClipboardEvent<HTMLDivElement>): void => {
+    if (editorMode !== "edit" || !editorRef.current) return;
+    const clipboard = event.clipboardData;
+    if (!clipboard) return;
+
+    const html = clipboard.getData("text/html");
+    if (html) {
+      event.preventDefault();
+      document.execCommand("insertHTML", false, sanitizeUnsupportedHtml(html));
+      updateCurrentNote(editorRef.current.innerHTML);
+      updateSelectionMenu();
+      updateFormatState();
+      return;
+    }
+
+    const text = clipboard.getData("text/plain");
+    if (text) {
+      event.preventDefault();
+      document.execCommand("insertText", false, text);
+      updateCurrentNote(editorRef.current.innerHTML);
+      updateSelectionMenu();
+      updateFormatState();
+    }
+  };
+
   const toggleExpand = (folderId: string): void => {
     setExpandedIds((prev) => (prev.includes(folderId) ? prev.filter((id) => id !== folderId) : [...prev, folderId]));
   };
@@ -1053,12 +1127,87 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     if (!currentNoteId) return;
     const text = commentDraft.trim();
     if (!text) return;
-    const item: NoteComment = { id: genId("cmt"), text, createdAt: Date.now() };
+    let commentId = genId("cmt");
+    let quote: string | undefined;
+
+    const pending = pendingCommentSelectionRef.current;
+    if (pending && editorMode === "edit" && editorRef.current) {
+      try {
+        const range = pending.range.cloneRange();
+        const anchor = document.createElement("span");
+        anchor.className = "inline-comment-highlight";
+        anchor.dataset.commentId = commentId;
+        anchor.appendChild(range.extractContents());
+        range.insertNode(anchor);
+        quote = pending.quote;
+        updateCurrentNote(editorRef.current.innerHTML);
+      } catch {
+        window.alert("选区已失效，请重新选择后再评论");
+        return;
+      } finally {
+        pendingCommentSelectionRef.current = null;
+      }
+    }
+
+    const item: NoteComment = { id: commentId, text, createdAt: Date.now(), quote };
     setCommentsByNote((prev) => {
       const list = prev[currentNoteId] || [];
       return { ...prev, [currentNoteId]: [item, ...list] };
     });
     setCommentDraft("");
+  };
+
+  const focusCommentAnchor = (commentId: string): void => {
+    const pane = editorMode === "edit" ? editorRef.current : previewRef.current;
+    if (!pane) return;
+    const nodes = Array.from(pane.querySelectorAll(".inline-comment-highlight"));
+    const target = nodes.find((node) => (node as HTMLElement).dataset.commentId === commentId) as HTMLElement | undefined;
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    target.classList.add("comment-highlight-flash");
+    window.setTimeout(() => {
+      target.classList.remove("comment-highlight-flash");
+    }, 1000);
+  };
+
+  const startSelectionCommentInput = (): void => {
+    if (!currentNoteId || editorMode !== "edit" || !editorRef.current) return;
+    const selection = window.getSelection();
+    let range: Range | null = null;
+    if (savedRangeRef.current) range = savedRangeRef.current.cloneRange();
+    else if (selection && selection.rangeCount > 0 && !selection.isCollapsed) range = selection.getRangeAt(0).cloneRange();
+    if (!range) {
+      window.alert("请先选中一段文字");
+      return;
+    }
+    const commonNode = range.commonAncestorContainer;
+    const withinEditor =
+      commonNode instanceof Node &&
+      (editorRef.current.contains(commonNode) || commonNode === editorRef.current);
+    if (!withinEditor) {
+      window.alert("请先在正文里选中文字");
+      return;
+    }
+
+    ensureFocus();
+    if (selection) {
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+    const quote = range.toString().trim();
+    if (!quote) {
+      window.alert("请先选中一段文字");
+      return;
+    }
+    pendingCommentSelectionRef.current = { range: range.cloneRange(), quote };
+
+    if (commentPanelCollapsed) setCommentPanelCollapsed(false);
+    window.requestAnimationFrame(() => commentInputRef.current?.focus());
+
+    savedRangeRef.current = null;
+    setSelectionMenu((prev) => (prev.visible ? { ...prev, visible: false } : prev));
+    setSelectionContext((prev) => (prev.visible ? { ...prev, visible: false } : prev));
+    setSaveText("已选择文本，请在评论区输入并发布");
   };
 
   const deleteComment = (commentId: string): void => {
@@ -1067,6 +1216,14 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
       const list = prev[currentNoteId] || [];
       return { ...prev, [currentNoteId]: list.filter((item) => item.id !== commentId) };
     });
+    if (!currentNote) return;
+    const cleaned = removeCommentAnchorFromHtml(currentNote.contentHtml, commentId);
+    if (cleaned === currentNote.contentHtml) return;
+    setNoteList((prev) =>
+      prev.map((note) => (note.id === currentNote.id ? { ...note, contentHtml: cleaned, updatedAt: Date.now() } : note))
+    );
+    if (editorMode === "edit" && editorRef.current) editorRef.current.innerHTML = cleaned;
+    pendingSaveRef.current = null;
   };
 
   const updateSelectionMenu = (): void => {
@@ -1143,6 +1300,18 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
       window.removeEventListener("resize", onScroll);
     };
   }, [editorMode]);
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      flushPendingSave();
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [flushPendingSave]);
+
+  useEffect(() => {
+    return () => {
+      flushPendingSave();
+    };
+  }, [currentNoteId, flushPendingSave]);
 
   useEffect(() => {
     setToolbarOrder((prev) => normalizeToolbarOrder(prev));
@@ -1151,8 +1320,40 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
   useEffect(() => {
     return () => {
       if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
+      for (const timer of scrollbarTimersRef.current.values()) window.clearTimeout(timer);
+      scrollbarTimersRef.current.clear();
     };
   }, []);
+
+  const activateFadeScrollbar = useCallback((target: EventTarget | null): void => {
+    if (!(target instanceof HTMLElement)) return;
+    const host = target.closest(".fade-scrollbar");
+    if (!(host instanceof HTMLElement)) return;
+    host.classList.add("scrollbar-active");
+
+    const timers = scrollbarTimersRef.current;
+    const prev = timers.get(host);
+    if (typeof prev === "number") window.clearTimeout(prev);
+    const timer = window.setTimeout(() => {
+      host.classList.remove("scrollbar-active");
+      timers.delete(host);
+    }, SCROLLBAR_IDLE_MS);
+    timers.set(host, timer);
+  }, []);
+
+  const onFadeScrollbarActivity = (event: React.SyntheticEvent<HTMLElement>): void => {
+    activateFadeScrollbar(event.target);
+  };
+
+  const onFadeScrollbarIdle = (event: React.SyntheticEvent<HTMLElement>): void => {
+    if (!(event.currentTarget instanceof HTMLElement)) return;
+    event.currentTarget.classList.remove("scrollbar-active");
+    const timer = scrollbarTimersRef.current.get(event.currentTarget);
+    if (typeof timer === "number") {
+      window.clearTimeout(timer);
+      scrollbarTimersRef.current.delete(event.currentTarget);
+    }
+  };
 
   useEffect(() => {
     syncActiveTocByScroll();
@@ -1309,7 +1510,6 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
           ) : (
             <span className="tree-toggle" />
           )}
-          <span className={`toc-level-tag l${node.level}`}>{`H${node.level}`}</span>
           <span className="toc-text">{node.text}</span>
         </div>
       );
@@ -1319,7 +1519,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     });
   };
 
-  const wordCount = useMemo(() => stripHtml(currentNote?.contentHtml ?? "").length, [currentNote]);
+  const wordCount = useMemo(() => stripHtml(sanitizedCurrentHtml).length, [sanitizedCurrentHtml]);
   const copyAllText = async (): Promise<void> => {
     if (!currentNote) return;
     const plainText = stripHtml(currentNote.contentHtml);
@@ -1377,7 +1577,20 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
             ) : null}
           </div>
           {!treePanelCollapsed && !focusMode ? (
-            <div ref={treeContainerRef} className="tree-container clean" tabIndex={-1} onContextMenu={openTreeAreaContextMenu}>{renderTree(folders)}</div>
+            <div
+              ref={treeContainerRef}
+              className="tree-container clean fade-scrollbar"
+              tabIndex={-1}
+              onContextMenu={openTreeAreaContextMenu}
+              onScroll={onFadeScrollbarActivity}
+              onWheel={onFadeScrollbarActivity}
+              onPointerDown={onFadeScrollbarActivity}
+              onMouseDown={onFadeScrollbarActivity}
+              onTouchStart={onFadeScrollbarActivity}
+              onMouseLeave={onFadeScrollbarIdle}
+            >
+              {renderTree(folders)}
+            </div>
           ) : null}
         </aside>
 
@@ -1445,7 +1658,17 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
                 </button>
               </div>
               {!tocPanelCollapsed && !focusMode ? (
-                <div ref={tocTreeRef} className="toc-tree" tabIndex={-1}>
+                <div
+                  ref={tocTreeRef}
+                  className="toc-tree fade-scrollbar"
+                  tabIndex={-1}
+                  onScroll={onFadeScrollbarActivity}
+                  onWheel={onFadeScrollbarActivity}
+                  onPointerDown={onFadeScrollbarActivity}
+                  onMouseDown={onFadeScrollbarActivity}
+                  onTouchStart={onFadeScrollbarActivity}
+                  onMouseLeave={onFadeScrollbarIdle}
+                >
                   {tocTree.length > 0 ? renderTocTree(tocTree) : <div className="toc-empty">当前文档暂无 H1-H4 标题</div>}
                 </div>
               ) : null}
@@ -1455,15 +1678,33 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
             ) : (
               <div />
             )}
-            <div className="notes-editor-main">
+            <div
+              className="notes-editor-main fade-scrollbar"
+              onWheelCapture={onFadeScrollbarActivity}
+              onPointerDownCapture={onFadeScrollbarActivity}
+              onMouseDownCapture={onFadeScrollbarActivity}
+              onTouchStartCapture={onFadeScrollbarActivity}
+              onScrollCapture={onFadeScrollbarActivity}
+              onMouseLeave={onFadeScrollbarIdle}
+            >
               <div className="notes-editor-canvas">
                 {editorMode === "edit" ? (
                   <div
                     ref={editorRef}
-                    className="wysiwyg-editor clean"
+                    className="wysiwyg-editor clean fade-scrollbar"
                     contentEditable
+                    spellCheck={false}
+                    autoCorrect="off"
+                    autoCapitalize="off"
                     suppressContentEditableWarning
                     onInput={onEditorInput}
+                    onPaste={onEditorPaste}
+                    onScroll={onFadeScrollbarActivity}
+                    onWheel={onFadeScrollbarActivity}
+                    onPointerDown={onFadeScrollbarActivity}
+                    onMouseDown={onFadeScrollbarActivity}
+                    onTouchStart={onFadeScrollbarActivity}
+                    onBlur={onFadeScrollbarIdle}
                     onMouseUp={updateSelectionMenu}
                     onKeyUp={updateSelectionMenu}
                     onContextMenu={openSelectionContextMenu}
@@ -1471,8 +1712,14 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
                 ) : (
                   <article
                     ref={previewRef}
-                    className="wysiwyg-preview clean"
-                    dangerouslySetInnerHTML={{ __html: currentNote?.contentHtml ?? "<p></p>" }}
+                    className="wysiwyg-preview clean fade-scrollbar"
+                    dangerouslySetInnerHTML={{ __html: sanitizedCurrentHtml }}
+                    onScroll={onFadeScrollbarActivity}
+                    onWheel={onFadeScrollbarActivity}
+                    onPointerDown={onFadeScrollbarActivity}
+                    onMouseDown={onFadeScrollbarActivity}
+                    onTouchStart={onFadeScrollbarActivity}
+                    onMouseLeave={onFadeScrollbarIdle}
                   />
                 )}
               </div>
@@ -1512,14 +1759,23 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
                     />
                     <button type="button" className="tiny-btn" onClick={addComment}>发布</button>
                   </div>
-                  <div className="comment-list">
+                  <div
+                    className="comment-list fade-scrollbar"
+                    onScroll={onFadeScrollbarActivity}
+                    onWheel={onFadeScrollbarActivity}
+                    onPointerDown={onFadeScrollbarActivity}
+                    onMouseDown={onFadeScrollbarActivity}
+                    onTouchStart={onFadeScrollbarActivity}
+                    onMouseLeave={onFadeScrollbarIdle}
+                  >
                     {currentComments.length === 0 ? <div className="comment-empty">暂无评论</div> : null}
                     {currentComments.map((item) => (
-                      <article key={item.id} className="comment-item">
+                      <article key={item.id} className="comment-item" onClick={() => focusCommentAnchor(item.id)}>
                         <p>{item.text}</p>
+                        {item.quote ? <p className="comment-quote">{item.quote}</p> : null}
                         <div className="comment-meta">
                           <span>{new Date(item.createdAt).toLocaleString("zh-CN", { hour12: false })}</span>
-                          <button type="button" onClick={() => deleteComment(item.id)}>删除</button>
+                          <button type="button" onClick={(event) => { event.stopPropagation(); deleteComment(item.id); }}>删除</button>
                         </div>
                       </article>
                     ))}
@@ -1579,6 +1835,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
           <button type="button" className={formatState.align === "center" ? "active" : ""} onClick={() => runCommand("justifyCenter")} title="居中"><AlignCenter size={14} /></button>
           <button type="button" className={formatState.align === "right" ? "active" : ""} onClick={() => runCommand("justifyRight")} title="右对齐"><AlignRight size={14} /></button>
           <button type="button" onClick={() => { runCommand("removeFormat"); runCommand("formatBlock", "<p>"); }} title="清除格式"><RemoveFormatting size={14} /></button>
+          <button type="button" onClick={startSelectionCommentInput} title="关联评论"><MessageSquarePlus size={14} /></button>
           <button type="button" onClick={insertLink} title="链接"><Link2 size={14} /></button>
           <button type="button" onClick={insertCode} title="代码"><Code size={14} /></button>
         </div>
@@ -1608,6 +1865,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
           <button type="button" className={formatState.align === "center" ? "active" : ""} onClick={() => runCommand("justifyCenter")} title="居中"><AlignCenter size={14} /></button>
           <button type="button" className={formatState.align === "right" ? "active" : ""} onClick={() => runCommand("justifyRight")} title="右对齐"><AlignRight size={14} /></button>
           <button type="button" onClick={() => { runCommand("removeFormat"); runCommand("formatBlock", "<p>"); }} title="清除格式"><RemoveFormatting size={14} /></button>
+          <button type="button" onClick={startSelectionCommentInput} title="关联评论"><MessageSquarePlus size={14} /></button>
           <button type="button" onClick={insertLink} title="链接"><Link2 size={14} /></button>
           <button type="button" onClick={insertCode} title="代码"><Code size={14} /></button>
         </div>
@@ -1636,3 +1894,5 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     </section>
   );
 }
+
+

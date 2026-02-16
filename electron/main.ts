@@ -1,10 +1,10 @@
-import path from "node:path";
+﻿import path from "node:path";
 import { app, BrowserWindow, globalShortcut, ipcMain, nativeImage } from "electron";
 import fs from "node:fs/promises";
 
 const HOTKEY = "Alt+Space";
 let mainWindow: BrowserWindow | null = null;
-const APP_ICON_PATH = path.join(__dirname, "../etc/云朵待办图标.png");
+const APP_ICON_PATH = path.join(__dirname, "../etc", "\u4e91\u6735\u5f85\u529e.png");
 
 function resolveAppIcon(): Electron.NativeImage | undefined {
   const icon = nativeImage.createFromPath(APP_ICON_PATH);
@@ -95,3 +95,4 @@ ipcMain.handle("storage:getBaseDir", async () => ensureDataDirs());
 ipcMain.handle("window:toggle", () => {
   toggleWindowVisibility();
 });
+

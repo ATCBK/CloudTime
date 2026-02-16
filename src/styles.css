@@ -532,6 +532,35 @@ button, input, textarea, select { font: inherit; }
   margin: 2px 0;
 }
 
+
+/* Final override: no horizontal scrollbar in editor/preview, wrap long content */
+.notes-editor-main,
+.notes-editor-canvas,
+.wysiwyg-editor.clean,
+.wysiwyg-preview.clean {
+  overflow-x: hidden !important;
+}
+
+.wysiwyg-editor.clean,
+.wysiwyg-preview.clean {
+  white-space: normal !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.wysiwyg-editor.clean pre,
+.wysiwyg-preview.clean pre {
+  white-space: pre-wrap !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* TOC: remove redundant H1/H2 labels, keep clean outline text only */
+.toc-row {
+  gap: 8px;
+}
+
+
 /* Final lock: editor toolbar must stay on one row without horizontal scrolling */
 .notes-editor-main {
   display: grid !important;
@@ -1004,6 +1033,19 @@ button, input, textarea, select { font: inherit; }
   border: 0;
   background: transparent;
   padding: 6px 0;
+  cursor: pointer;
+}
+
+.comment-quote {
+  margin: 6px 0 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #f2f5fb;
+  color: #6a7390;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .editor-statusbar {
@@ -1638,6 +1680,22 @@ button, input, textarea, select { font: inherit; }
   outline: none;
 }
 
+.inline-comment-highlight {
+  background: rgba(255, 220, 120, 0.38);
+  border-bottom: 2px solid rgba(232, 170, 62, 0.85);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.inline-comment-highlight.comment-highlight-flash {
+  animation: commentAnchorFlash 1000ms ease;
+}
+
+@keyframes commentAnchorFlash {
+  0% { background: rgba(255, 220, 120, 0.9); }
+  100% { background: rgba(255, 220, 120, 0.38); }
+}
+
 
 .line-icon {
   color: #4e5a78;
@@ -1722,3 +1780,63 @@ button, input, textarea, select { font: inherit; }
   border-top: 1px solid #e5e9f6;
   margin: 2px 0;
 }
+
+
+
+
+/* Scope to Notes page only, so all internal scrollers share one style */
+
+
+
+
+
+
+
+
+
+/* ===== FINAL SCROLLBAR SYSTEM (single source of truth) ===== */
+.notes-page-clean .fade-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(164, 169, 180, 0) transparent;
+}
+
+.notes-page-clean .fade-scrollbar::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+}
+
+.notes-page-clean .fade-scrollbar::-webkit-scrollbar-button,
+.notes-page-clean .fade-scrollbar::-webkit-scrollbar-button:single-button,
+.notes-page-clean .fade-scrollbar::-webkit-scrollbar-button:double-button,
+.notes-page-clean .fade-scrollbar::-webkit-scrollbar-button:increment,
+.notes-page-clean .fade-scrollbar::-webkit-scrollbar-button:decrement,
+.notes-page-clean .fade-scrollbar::-webkit-scrollbar-button:start,
+.notes-page-clean .fade-scrollbar::-webkit-scrollbar-button:end {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  -webkit-appearance: none !important;
+  background: transparent !important;
+}
+
+.notes-page-clean .fade-scrollbar::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.notes-page-clean .fade-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(164, 169, 180, 0) !important;
+  border-radius: 999px !important;
+  border: 2px solid transparent !important;
+  background-clip: padding-box !important;
+  transition: background-color 140ms ease !important;
+}
+
+.notes-page-clean .fade-scrollbar.scrollbar-active {
+  scrollbar-color: rgba(164, 169, 180, 0.72) transparent !important;
+}
+
+.notes-page-clean .fade-scrollbar.scrollbar-active::-webkit-scrollbar-thumb {
+  background: rgba(164, 169, 180, 0.72) !important;
+}
+
+
