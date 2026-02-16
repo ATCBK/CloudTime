@@ -3,6 +3,7 @@
 .notes-page-clean .capsule-scrollbar {
   position: relative;
   --capsule-visible: 0;
+  --capsule-opacity: 0;
   --capsule-top: 0px;
   --capsule-height: 0px;
   scrollbar-width: none !important;
@@ -23,20 +24,22 @@
   content: "";
   position: absolute;
   right: 4px;
-  top: var(--capsule-top);
+  top: 0;
   width: 8px;
   height: var(--capsule-height);
   border-radius: 9999px;
   background: rgba(186, 191, 199, 0.95);
-  opacity: var(--capsule-visible);
+  opacity: calc(var(--capsule-visible) * var(--capsule-opacity));
+  transform: translate3d(0, var(--capsule-top), 0);
+  will-change: transform, opacity;
   pointer-events: none;
   z-index: 4;
-  transition: background-color 140ms ease, opacity 140ms ease;
+  transition: background-color 140ms ease, opacity 220ms ease;
 }
 
 .notes-page-clean .capsule-scrollbar.capsule-active::after,
-.notes-page-clean .capsule-scrollbar:hover::after,
 .notes-page-clean .capsule-scrollbar:focus-within::after {
+  opacity: calc(var(--capsule-visible) * 1);
   background: rgba(157, 164, 176, 0.98);
 }
 
@@ -50,9 +53,26 @@
   height: 100% !important;
 }
 
-.notes-page-clean .wysiwyg-editor.clean.capsule-scrollbar,
-.notes-page-clean .wysiwyg-preview.clean.capsule-scrollbar {
+.notes-page-clean .wysiwyg-editor.clean.capsule-scroll-target,
+.notes-page-clean .wysiwyg-preview.clean.capsule-scroll-target {
   min-height: 0 !important;
   height: 100% !important;
   overflow: auto !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none;
+}
+
+.notes-page-clean .wysiwyg-editor.clean.capsule-scroll-target::-webkit-scrollbar,
+.notes-page-clean .wysiwyg-preview.clean.capsule-scroll-target::-webkit-scrollbar,
+.notes-page-clean .wysiwyg-editor.clean.capsule-scroll-target::-webkit-scrollbar-button,
+.notes-page-clean .wysiwyg-preview.clean.capsule-scroll-target::-webkit-scrollbar-button,
+.notes-page-clean .wysiwyg-editor.clean.capsule-scroll-target::-webkit-scrollbar-track,
+.notes-page-clean .wysiwyg-preview.clean.capsule-scroll-target::-webkit-scrollbar-track,
+.notes-page-clean .wysiwyg-editor.clean.capsule-scroll-target::-webkit-scrollbar-thumb,
+.notes-page-clean .wysiwyg-preview.clean.capsule-scroll-target::-webkit-scrollbar-thumb,
+.notes-page-clean .wysiwyg-editor.clean.capsule-scroll-target::-webkit-scrollbar-corner,
+.notes-page-clean .wysiwyg-preview.clean.capsule-scroll-target::-webkit-scrollbar-corner {
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }

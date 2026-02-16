@@ -134,7 +134,7 @@ const DEFAULT_TOOLBAR_ORDER = [
   "italic",
   "delete"
 ] as const;
-const CAPSULE_IDLE_MS = 320;
+const CAPSULE_IDLE_MS = 1000;
 const CAPSULE_MIN_SIZE = 44;
 const CAPSULE_TRACK_PADDING = 6;
 
@@ -389,6 +389,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
 
   const editorRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLElement>(null);
+  const editorMainRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const resizingRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const tocResizingRef = useRef<{ startX: number; startWidth: number } | null>(null);
@@ -403,6 +404,12 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
   const pendingCommentSelectionRef = useRef<{ range: Range; quote: string } | null>(null);
   const pendingSaveRef = useRef<{ noteId: string; html: string } | null>(null);
   const capsuleTimersRef = useRef<Map<HTMLElement, number>>(new Map());
+  const capsuleRafRef = useRef<Map<HTMLElement, number>>(new Map());
+  const capsulePulseRef = useRef<Map<HTMLElement, number>>(new Map());
+  const capsuleMetricsRef = useRef<Map<HTMLElement, { scrollRange: number; maxTop: number; thumbHeight: number }>>(new Map());
+  const tocOffsetsRef = useRef<number[]>([]);
+  const tocSyncRafRef = useRef<number | null>(null);
+  const tocSyncTimerRef = useRef<number | null>(null);
 
   const [commentsByNote, setCommentsByNote] = useLocalStorageState<Record<string, NoteComment[]>>("cloudo.notes.commentsByNote", {});
 
@@ -1103,27 +1110,39 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     setActiveTocId(tocId);
   };
 
-  const syncActiveTocByScroll = (): void => {
+  const rebuildTocOffsets = useCallback((): void => {
     const pane = editorMode === "edit" ? editorRef.current : previewRef.current;
     if (!pane || tocFlat.length === 0) {
-      setActiveTocId("");
+      tocOffsetsRef.current = [];
       return;
     }
     const headings = pane.querySelectorAll("h1,h2,h3,h4");
-    if (headings.length === 0) {
-      setActiveTocId("");
+    tocOffsetsRef.current = Array.from(headings, (heading) => (heading as HTMLElement).offsetTop);
+  }, [editorMode, tocFlat.length, currentNoteId, sanitizedCurrentHtml]);
+
+  const syncActiveTocByScroll = useCallback((): void => {
+    const pane = editorMode === "edit" ? editorRef.current : previewRef.current;
+    const offsets = tocOffsetsRef.current;
+    if (!pane || tocFlat.length === 0 || offsets.length === 0) {
+      setActiveTocId((prev) => (prev ? "" : prev));
       return;
     }
-
     const scrollMark = pane.scrollTop + 28;
+    let left = 0;
+    let right = offsets.length - 1;
     let activeIndex = 0;
-    headings.forEach((heading, index) => {
-      const element = heading as HTMLElement;
-      if (element.offsetTop <= scrollMark) activeIndex = index;
-    });
-    const next = tocFlat.find((item) => item.index === activeIndex);
-    setActiveTocId(next?.id ?? "");
-  };
+    while (left <= right) {
+      const mid = (left + right) >> 1;
+      if (offsets[mid] <= scrollMark) {
+        activeIndex = mid;
+        left = mid + 1;
+      } else {
+        right = mid - 1;
+      }
+    }
+    const nextId = tocFlat.find((item) => item.index === activeIndex)?.id ?? "";
+    setActiveTocId((prev) => (prev === nextId ? prev : nextId));
+  }, [editorMode, tocFlat]);
 
   const addComment = (): void => {
     if (!currentNoteId) return;
@@ -1291,17 +1310,27 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
   };
 
   useEffect(() => {
-    const onSelectionChange = (): void => updateSelectionMenu();
-    const onScroll = (): void => updateSelectionMenu();
+    const onSelectionChange = (): void => {
+      if (editorMode !== "edit") return;
+      updateSelectionMenu();
+    };
+    const onScroll = (): void => {
+      if (!selectionMenu.visible && !selectionContext.visible) return;
+      updateSelectionMenu();
+    };
     document.addEventListener("selectionchange", onSelectionChange);
-    window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", onScroll);
+    if (selectionMenu.visible || selectionContext.visible) {
+      window.addEventListener("scroll", onScroll, true);
+      window.addEventListener("resize", onScroll);
+    }
     return () => {
       document.removeEventListener("selectionchange", onSelectionChange);
-      window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onScroll);
+      if (selectionMenu.visible || selectionContext.visible) {
+        window.removeEventListener("scroll", onScroll, true);
+        window.removeEventListener("resize", onScroll);
+      }
     };
-  }, [editorMode]);
+  }, [editorMode, selectionMenu.visible, selectionContext.visible]);
   useEffect(() => {
     const timer = window.setInterval(() => {
       flushPendingSave();
@@ -1324,37 +1353,95 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
       if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
       for (const timer of capsuleTimersRef.current.values()) window.clearTimeout(timer);
       capsuleTimersRef.current.clear();
+      for (const rafId of capsuleRafRef.current.values()) window.cancelAnimationFrame(rafId);
+      capsuleRafRef.current.clear();
+      capsulePulseRef.current.clear();
+      capsuleMetricsRef.current.clear();
+      if (tocSyncRafRef.current !== null) {
+        window.cancelAnimationFrame(tocSyncRafRef.current);
+        tocSyncRafRef.current = null;
+      }
+      if (tocSyncTimerRef.current !== null) {
+        window.clearTimeout(tocSyncTimerRef.current);
+        tocSyncTimerRef.current = null;
+      }
     };
   }, []);
 
-  const syncCapsuleScrollbar = useCallback((host: HTMLElement): void => {
-    const scrollRange = host.scrollHeight - host.clientHeight;
-    if (host.clientHeight <= 0 || scrollRange <= 1) {
+  const recalcCapsuleMetrics = useCallback((host: HTMLElement): void => {
+    const target =
+      host.dataset.capsuleTarget === "editor-pane"
+        ? (editorMode === "edit" ? editorRef.current : previewRef.current)
+        : host;
+    if (!target) {
+      capsuleMetricsRef.current.delete(host);
       host.style.setProperty("--capsule-visible", "0");
       host.style.setProperty("--capsule-top", "0px");
       host.style.setProperty("--capsule-height", "0px");
       return;
     }
-    const trackHeight = Math.max(host.clientHeight - CAPSULE_TRACK_PADDING * 2, 0);
+    const scrollRange = target.scrollHeight - target.clientHeight;
+    if (target.clientHeight <= 0 || scrollRange <= 1) {
+      capsuleMetricsRef.current.delete(host);
+      host.style.setProperty("--capsule-visible", "0");
+      host.style.setProperty("--capsule-top", "0px");
+      host.style.setProperty("--capsule-height", "0px");
+      return;
+    }
+    const trackHeight = Math.max(target.clientHeight - CAPSULE_TRACK_PADDING * 2, 0);
     const thumbHeight = Math.min(
       trackHeight,
-      Math.max(CAPSULE_MIN_SIZE, Math.round((host.clientHeight / host.scrollHeight) * trackHeight))
+      Math.max(CAPSULE_MIN_SIZE, Math.round((target.clientHeight / target.scrollHeight) * trackHeight))
     );
     const maxTop = Math.max(trackHeight - thumbHeight, 0);
-    const thumbTop = CAPSULE_TRACK_PADDING + Math.round((host.scrollTop / scrollRange) * maxTop);
-    const visualTop = thumbTop + host.scrollTop;
+    capsuleMetricsRef.current.set(host, { scrollRange, maxTop, thumbHeight });
     host.style.setProperty("--capsule-visible", "1");
-    host.style.setProperty("--capsule-top", `${visualTop}px`);
     host.style.setProperty("--capsule-height", `${thumbHeight}px`);
-  }, []);
+  }, [editorMode, currentNoteId]);
+
+  const syncCapsuleScrollbar = useCallback((host: HTMLElement): void => {
+    const target =
+      host.dataset.capsuleTarget === "editor-pane"
+        ? (editorMode === "edit" ? editorRef.current : previewRef.current)
+        : host;
+    if (!target) return;
+    let metrics = capsuleMetricsRef.current.get(host);
+    if (!metrics) {
+      recalcCapsuleMetrics(host);
+      metrics = capsuleMetricsRef.current.get(host);
+    }
+    if (!metrics) return;
+    const thumbTop = CAPSULE_TRACK_PADDING + (target.scrollTop / metrics.scrollRange) * metrics.maxTop;
+    const visualTop = target === host ? thumbTop + target.scrollTop : thumbTop;
+    host.style.setProperty("--capsule-top", `${visualTop}px`);
+  }, [recalcCapsuleMetrics, editorMode, currentNoteId]);
 
   const syncAllCapsuleScrollbars = useCallback((): void => {
     const scope = workspaceRef.current;
     if (!scope) return;
-    scope.querySelectorAll<HTMLElement>(".capsule-scrollbar").forEach((host) => syncCapsuleScrollbar(host));
+    scope.querySelectorAll<HTMLElement>(".capsule-scrollbar").forEach((host) => {
+      recalcCapsuleMetrics(host);
+      syncCapsuleScrollbar(host);
+    });
+  }, [recalcCapsuleMetrics, syncCapsuleScrollbar]);
+
+  const queueSyncCapsuleScrollbar = useCallback((host: HTMLElement): void => {
+    const rafs = capsuleRafRef.current;
+    const pending = rafs.get(host);
+    if (typeof pending === "number") return;
+    const rafId = window.requestAnimationFrame(() => {
+      syncCapsuleScrollbar(host);
+      rafs.delete(host);
+    });
+    rafs.set(host, rafId);
   }, [syncCapsuleScrollbar]);
 
   const activateCapsuleScrollbar = useCallback((host: HTMLElement): void => {
+    const now = performance.now();
+    const pulses = capsulePulseRef.current;
+    const prevPulse = pulses.get(host) ?? 0;
+    if (host.classList.contains("capsule-active") && now - prevPulse < 120) return;
+    pulses.set(host, now);
     host.classList.add("capsule-active");
     const timers = capsuleTimersRef.current;
     const prev = timers.get(host);
@@ -1362,34 +1449,53 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     const timer = window.setTimeout(() => {
       host.classList.remove("capsule-active");
       timers.delete(host);
+      pulses.delete(host);
     }, CAPSULE_IDLE_MS);
     timers.set(host, timer);
   }, []);
 
-  const onCapsuleScrollbarActivity = useCallback((event: Event): void => {
-    if (!(event.target instanceof HTMLElement)) return;
-    const host = event.target.closest(".capsule-scrollbar");
-    if (!(host instanceof HTMLElement)) return;
-    syncCapsuleScrollbar(host);
-    activateCapsuleScrollbar(host);
-  }, [activateCapsuleScrollbar, syncCapsuleScrollbar]);
-
   useEffect(() => {
     const scope = workspaceRef.current;
     if (!scope) return;
-    scope.addEventListener("scroll", onCapsuleScrollbarActivity, true);
-    scope.addEventListener("wheel", onCapsuleScrollbarActivity, true);
-    scope.addEventListener("mousedown", onCapsuleScrollbarActivity, true);
-    scope.addEventListener("pointerdown", onCapsuleScrollbarActivity, true);
-    scope.addEventListener("touchstart", onCapsuleScrollbarActivity, true);
+    const hosts = Array.from(scope.querySelectorAll<HTMLElement>(".capsule-scrollbar"));
+    const bindings: Array<{ host: HTMLElement; target: HTMLElement; onTargetActivity: () => void; onFocusIn: () => void }> = [];
+    hosts.forEach((host) => {
+      const target =
+        host.dataset.capsuleTarget === "editor-pane"
+          ? (editorMode === "edit" ? editorRef.current : previewRef.current)
+          : host;
+      if (!(target instanceof HTMLElement)) return;
+      const onTargetActivity = (): void => {
+        queueSyncCapsuleScrollbar(host);
+        activateCapsuleScrollbar(host);
+      };
+      const onFocusIn = (): void => {
+        queueSyncCapsuleScrollbar(host);
+        activateCapsuleScrollbar(host);
+      };
+      queueSyncCapsuleScrollbar(host);
+      target.addEventListener("scroll", onTargetActivity, { passive: true });
+      target.addEventListener("pointerdown", onTargetActivity, { passive: true });
+      host.addEventListener("focusin", onFocusIn);
+      bindings.push({ host, target, onTargetActivity, onFocusIn });
+    });
     return () => {
-      scope.removeEventListener("scroll", onCapsuleScrollbarActivity, true);
-      scope.removeEventListener("wheel", onCapsuleScrollbarActivity, true);
-      scope.removeEventListener("mousedown", onCapsuleScrollbarActivity, true);
-      scope.removeEventListener("pointerdown", onCapsuleScrollbarActivity, true);
-      scope.removeEventListener("touchstart", onCapsuleScrollbarActivity, true);
+      bindings.forEach(({ host, target, onTargetActivity, onFocusIn }) => {
+        target.removeEventListener("scroll", onTargetActivity);
+        target.removeEventListener("pointerdown", onTargetActivity);
+        host.removeEventListener("focusin", onFocusIn);
+      });
     };
-  }, [onCapsuleScrollbarActivity]);
+  }, [
+    queueSyncCapsuleScrollbar,
+    activateCapsuleScrollbar,
+    currentNoteId,
+    editorMode,
+    focusMode,
+    treePanelCollapsed,
+    tocPanelCollapsed,
+    commentPanelCollapsed
+  ]);
 
   useEffect(() => {
     syncAllCapsuleScrollbars();
@@ -1410,23 +1516,44 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
       window.removeEventListener("resize", onResize);
       observer.disconnect();
     };
-  }, [syncAllCapsuleScrollbars, currentNoteId, editorMode, focusMode, treePanelCollapsed, tocPanelCollapsed, commentPanelCollapsed]);
+  }, [syncAllCapsuleScrollbars]);
 
   useEffect(() => {
     syncAllCapsuleScrollbars();
   }, [syncAllCapsuleScrollbars, currentNoteId, editorMode, focusMode, treePanelCollapsed, tocPanelCollapsed, commentPanelCollapsed]);
 
   useEffect(() => {
+    rebuildTocOffsets();
     syncActiveTocByScroll();
-  }, [currentNoteId, editorMode, tocFlat.length]);
+  }, [rebuildTocOffsets, syncActiveTocByScroll]);
 
   useEffect(() => {
     const pane = editorMode === "edit" ? editorRef.current : previewRef.current;
     if (!pane) return;
-    const onScroll = (): void => syncActiveTocByScroll();
-    pane.addEventListener("scroll", onScroll);
-    return () => pane.removeEventListener("scroll", onScroll);
-  }, [editorMode, currentNoteId, tocFlat.length]);
+    const onScroll = (): void => {
+      if (tocSyncTimerRef.current !== null) return;
+      tocSyncTimerRef.current = window.setTimeout(() => {
+        tocSyncTimerRef.current = null;
+        if (tocSyncRafRef.current !== null) return;
+        tocSyncRafRef.current = window.requestAnimationFrame(() => {
+          tocSyncRafRef.current = null;
+          syncActiveTocByScroll();
+        });
+      }, 80);
+    };
+    pane.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      pane.removeEventListener("scroll", onScroll);
+      if (tocSyncTimerRef.current !== null) {
+        window.clearTimeout(tocSyncTimerRef.current);
+        tocSyncTimerRef.current = null;
+      }
+      if (tocSyncRafRef.current !== null) {
+        window.cancelAnimationFrame(tocSyncRafRef.current);
+        tocSyncRafRef.current = null;
+      }
+    };
+  }, [editorMode, currentNoteId, syncActiveTocByScroll]);
 
   const toolbarButtons: Record<string, JSX.Element> = {
     undo: <button type="button" className="icon-btn large draggable-tool" title="撤销" onClick={() => runCommand("undo")}><Undo2 size={18} /></button>,
@@ -1727,12 +1854,12 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
             ) : (
               <div />
             )}
-            <div className="notes-editor-main capsule-scrollbar">
+            <div ref={editorMainRef} className="notes-editor-main capsule-scrollbar" data-capsule-target="editor-pane">
               <div className="notes-editor-canvas">
                 {editorMode === "edit" ? (
                   <div
                     ref={editorRef}
-                    className="wysiwyg-editor clean capsule-scrollbar"
+                    className="wysiwyg-editor clean capsule-scroll-target"
                     contentEditable
                     spellCheck={false}
                     autoCorrect="off"
@@ -1747,7 +1874,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
                 ) : (
                   <article
                     ref={previewRef}
-                    className="wysiwyg-preview clean capsule-scrollbar"
+                    className="wysiwyg-preview clean capsule-scroll-target"
                     dangerouslySetInnerHTML={{ __html: sanitizedCurrentHtml }}
                   />
                 )}
