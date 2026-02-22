@@ -426,10 +426,10 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
   }, [noteList]);
   const currentNote = useMemo(() => noteList.find((n) => n.id === currentNoteId) ?? null, [noteList, currentNoteId]);
   const currentComments = useMemo(() => commentsByNote[currentNoteId] || [], [commentsByNote, currentNoteId]);
-  const computedLeftPaneWidth = focusMode ? 0 : (treePanelCollapsed ? 40 : leftPaneWidth);
-  const computedLeftDividerWidth = focusMode ? 0 : 6;
-  const computedTocPaneWidth = focusMode ? 0 : (tocPanelCollapsed ? 40 : tocPaneWidth);
-  const computedTocDividerWidth = focusMode ? 0 : 6;
+  const computedLeftPaneWidth = focusMode ? 0 : (treePanelCollapsed ? 34 : leftPaneWidth);
+  const computedLeftDividerWidth = focusMode || treePanelCollapsed ? 0 : 6;
+  const computedTocPaneWidth = focusMode ? 0 : (tocPanelCollapsed ? 34 : tocPaneWidth);
+  const computedTocDividerWidth = focusMode || tocPanelCollapsed ? 0 : 6;
   const computedCommentPaneWidth = focusMode ? 0 : (commentPanelCollapsed ? 40 : commentPaneWidth);
   const computedCommentDividerWidth = focusMode ? 0 : 6;
   const sanitizedCurrentHtml = useMemo(() => sanitizeUnsupportedHtml(currentNote?.contentHtml ?? "<p></p>"), [currentNote?.contentHtml]);
@@ -1737,15 +1737,15 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
         className="notes-workspace clean"
         style={{ gridTemplateColumns: `${computedLeftPaneWidth}px ${computedLeftDividerWidth}px 1fr` }}
       >
-        <aside className={treePanelCollapsed || focusMode ? "panel notes-tree-panel clean collapsed" : "panel notes-tree-panel clean"}>
+        <aside className={treePanelCollapsed || focusMode ? "panel notes-tree-panel clean collapsed icon-rail" : "panel notes-tree-panel clean"}>
           <div className="tree-toolbar icons">
             <button
               type="button"
-              className="icon-btn large"
+              className={treePanelCollapsed || focusMode ? "icon-btn large rail-toggle-btn" : "icon-btn large"}
               title={treePanelCollapsed ? "展开文件树" : "折叠文件树"}
               onClick={toggleTreePanel}
             >
-              {treePanelCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+              {treePanelCollapsed ? <Folder size={18} /> : <ChevronLeft size={18} />}
             </button>
             {!treePanelCollapsed && !focusMode ? (
               <>
@@ -1826,17 +1826,17 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
             className="notes-editor-body"
             style={{ gridTemplateColumns: `${computedTocPaneWidth}px ${computedTocDividerWidth}px 1fr ${computedCommentDividerWidth}px ${computedCommentPaneWidth}px` }}
           >
-            <aside className={tocPanelCollapsed || focusMode ? "toc-panel collapsed" : "toc-panel"}>
+            <aside className={tocPanelCollapsed || focusMode ? "toc-panel collapsed icon-rail" : "toc-panel"}>
               <div className="toc-title-row">
                 {!tocPanelCollapsed && !focusMode ? <span>目录</span> : null}
                 {!tocPanelCollapsed && !focusMode ? <span className="soft-text">{tocFlat.length}</span> : null}
                 <button
                   type="button"
-                  className="tree-toggle"
+                  className={tocPanelCollapsed || focusMode ? "tree-toggle rail-toggle-btn" : "tree-toggle"}
                   title={tocPanelCollapsed ? "展开目录" : "折叠目录"}
                   onClick={toggleTocPanel}
                 >
-                  {tocPanelCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+                  {tocPanelCollapsed ? <List size={14} /> : <ChevronLeft size={14} />}
                 </button>
               </div>
               {!tocPanelCollapsed && !focusMode ? (

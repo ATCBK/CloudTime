@@ -1786,6 +1786,68 @@ button, input, textarea, select { font: inherit; }
 
 /* Scope to Notes page only, so all internal scrollers share one style */
 
+/* Notes collapsed rails: icon-only and no tinted blocks */
+.notes-tree-panel.clean.collapsed.icon-rail,
+.toc-panel.collapsed.icon-rail {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.notes-tree-panel.clean.collapsed.icon-rail {
+  grid-template-rows: 44px 1fr !important;
+  align-content: start !important;
+  padding: 0 !important;
+}
+
+.notes-tree-panel.clean.collapsed.icon-rail .tree-toolbar.icons {
+  justify-content: center !important;
+  align-items: flex-start !important;
+  padding: 6px 0 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.toc-panel.collapsed.icon-rail {
+  display: grid !important;
+  grid-template-rows: 34px 1fr !important;
+  align-content: start !important;
+  justify-items: center !important;
+}
+
+.toc-panel.collapsed.icon-rail .toc-title-row {
+  width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  border: 0 !important;
+  background: transparent !important;
+  padding: 6px 0 0 !important;
+  min-height: auto !important;
+}
+
+.toc-panel.collapsed.icon-rail .toc-title-row span,
+.toc-panel.collapsed.icon-rail .toc-tree {
+  display: none !important;
+}
+
+.rail-toggle-btn {
+  min-width: 28px !important;
+  width: 28px !important;
+  height: 28px !important;
+  border: 1px solid #d6dced !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  color: #5b6683 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.rail-toggle-btn:hover {
+  border-color: #c5cfe5 !important;
+  background: #f3f6fd !important;
+}
+
 
 
 
