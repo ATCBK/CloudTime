@@ -1,7 +1,13 @@
-﻿import { DragEvent, MouseEvent as ReactMouseEvent, useEffect, useMemo, useRef, useState } from "react";
+﻿import { ClipboardEvent as ReactClipboardEvent, DragEvent, MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Bold, Check, Eye, EyeOff, GripVertical, Italic, Link2, List, RotateCcw, Trash2, X } from "lucide-react";
 import { TimelineItem, TodoItem } from "../types";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
-import { MarkdownPreview } from "./MarkdownPreview";
+import { resolveInitialLightNoteHtml, sanitizeLightNoteHtml } from "./lightNoteRichText";
+import { buildTaskReferenceCardHtml, scheduleToTodoCandidate, toggleTodoCompleted } from "./timeManagerActions";
+import { boundRange, computeAutoScrollDelta, pointerToSnappedRange, snapToStep } from "./timeDragMath";
+import { buildQuickPanelItems, removeTodoAfterSchedule } from "./quickPanelState";
+import { buildHourSlots24, computeMinuteOfDay, computeMsUntilNextMidnight, computeMsUntilTodayRecycle, computeNowLineTop, isSameDateKey, toggleWeekExpandedDate } from "./timeManagerClock";
+import { computeLaneWidth, computeTimelineUsableWidth } from "./timelineLayout";
 
 interface TimeManagerPageProps {
   todos: TodoItem[];
@@ -18,6 +24,8 @@ interface PaneWidths {
 
 interface ScheduledItem extends TimelineItem {
   date: string;
+  details?: string;
+  completed?: boolean;
 }
 
 interface PositionedTimelineItem extends ScheduledItem {
@@ -25,8 +33,8 @@ interface PositionedTimelineItem extends ScheduledItem {
   laneCount: number;
 }
 
-const HOURS = Array.from({ length: 14 }, (_, i) => i + 8);
-const START_HOUR = 8;
+const HOURS = buildHourSlots24();
+const START_HOUR = 0;
 const PIXELS_PER_HOUR = 56;
 const TOTAL_MINUTES = HOURS.length * 60;
 const MIN_ITEM_MINUTES = 15;
@@ -36,13 +44,17 @@ const MIN_MIDDLE_PANE = 34;
 const MIN_RIGHT_PANE = 18;
 const TIMELINE_PADDING = 8;
 const LANE_GAP = 6;
+const SNAP_MINUTES = 15;
+const AUTO_SCROLL_EDGE = 56;
+const AUTO_SCROLL_SPEED = 20;
+const TIMELINE_LABEL_WIDTH = 58;
 
 function toMinutes(hour: number, minute: number): number {
   return (hour - START_HOUR) * 60 + minute;
 }
 
 function toClock(totalMinutes: number): { hour: number; minute: number } {
-  const minutesFromStart = Math.max(0, Math.min(TOTAL_MINUTES - 1, totalMinutes));
+  const minutesFromStart = Math.max(0, Math.min(TOTAL_MINUTES, totalMinutes));
   const hour = START_HOUR + Math.floor(minutesFromStart / 60);
   const minute = minutesFromStart % 60;
   return { hour, minute };
@@ -153,32 +165,45 @@ function layoutWithLanes(items: ScheduledItem[]): PositionedTimelineItem[] {
 }
 
 export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps): JSX.Element {
-  const today = useMemo(() => new Date(), []);
-  const todayKey = useMemo(() => formatDateKey(today), [today]);
+  const initialNow = useMemo(() => new Date(), []);
+  const [currentDateKey, setCurrentDateKey] = useState<string>(formatDateKey(initialNow));
+  const [nowMinute, setNowMinute] = useState<number>(computeMinuteOfDay(initialNow));
+  const initialTodoById = useMemo(() => new Map(todos.map((todo) => [todo.id, todo])), [todos]);
   const [calendarView, setCalendarView] = useLocalStorageState<CalendarView>("cloudo.time.calendarView", "day");
-  const [selectedDateKey, setSelectedDateKey] = useLocalStorageState<string>("cloudo.time.selectedDateKey", todayKey);
+  const [selectedDateKey, setSelectedDateKey] = useLocalStorageState<string>("cloudo.time.selectedDateKey", formatDateKey(initialNow));
 
   const [todosState, setTodosState] = useLocalStorageState<TodoItem[]>("cloudo.time.todos", todos);
   const [newTodoTitle, setNewTodoTitle] = useState<string>("");
+  const [newTodoDetail, setNewTodoDetail] = useState<string>("");
   const [newTodoProject, setNewTodoProject] = useLocalStorageState<string>("cloudo.time.newTodoProject", "默认项目");
   const [newTodoDuration, setNewTodoDuration] = useLocalStorageState<number>("cloudo.time.newTodoDuration", 60);
 
   const [scheduledItems, setScheduledItems] = useLocalStorageState<ScheduledItem[]>("cloudo.time.scheduledItems",
-    timelineItems.map((item) => ({ ...item, date: formatDateKey(today) }))
+    timelineItems.map((item) => ({
+      ...item,
+      date: formatDateKey(initialNow),
+      details: initialTodoById.get(item.todoId)?.details ?? "",
+      completed: initialTodoById.get(item.todoId)?.completed ?? false
+    }))
   );
 
   const [draggingTodoId, setDraggingTodoId] = useState<string | null>(null);
+  const [draggingScheduleId, setDraggingScheduleId] = useState<string | null>(null);
   const [dropPreview, setDropPreview] = useState<{ start: number; end: number; title: string } | null>(null);
   const [paneWidths, setPaneWidths] = useLocalStorageState<PaneWidths>("cloudo.time.paneWidths", { left: 24, middle: 46, right: 30 });
-  const [lightNote, setLightNote] = useLocalStorageState<string>("cloudo.time.lightNote", "# 当天轻笔记\n\n- 记录关键事项\n- 记录排程中的想法\n");
-  const [noteMode, setNoteMode] = useLocalStorageState<"edit" | "preview">("cloudo.time.noteMode", "edit");
+  const [lightNoteHtml, setLightNoteHtml] = useLocalStorageState<string>("cloudo.time.lightNoteHtml", "");
   const [timelineWidth, setTimelineWidth] = useState<number>(0);
   const [movingItemId, setMovingItemId] = useState<string | null>(null);
+  const [openedTodoDetailId, setOpenedTodoDetailId] = useState<string | null>(null);
+  const [openedScheduleDetailId, setOpenedScheduleDetailId] = useState<string | null>(null);
+  const [expandedWeekDateKey, setExpandedWeekDateKey] = useState<string | null>(null);
 
   const paneRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const resizingRef = useRef<{ divider: 0 | 1; startX: number; start: PaneWidths } | null>(null);
   const moveTaskRef = useRef<{ itemId: string; offsetMinutes: number; durationMinutes: number } | null>(null);
+  const lightNoteEditorRef = useRef<HTMLDivElement>(null);
+  const quickCreateTitleRef = useRef<HTMLInputElement>(null);
 
   const selectedDate = useMemo(() => parseDateKey(selectedDateKey), [selectedDateKey]);
   const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
@@ -190,6 +215,192 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     [scheduledItems, selectedDateKey]
   );
   const positionedItems = useMemo(() => layoutWithLanes(selectedDateItems), [selectedDateItems]);
+  const quickPanelItems = useMemo(() => buildQuickPanelItems(scheduledItems, todosState, currentDateKey), [scheduledItems, todosState, currentDateKey]);
+
+  useEffect(() => {
+    if (lightNoteHtml.trim()) return;
+
+    let legacyMarkdown: string | null = null;
+    try {
+      const legacyRaw = window.localStorage.getItem("cloudo.time.lightNote");
+      if (legacyRaw !== null) {
+        const parsed = JSON.parse(legacyRaw);
+        if (typeof parsed === "string") legacyMarkdown = parsed;
+      }
+    } catch {
+      // Ignore malformed legacy storage.
+    }
+
+    const initialHtml = resolveInitialLightNoteHtml("", legacyMarkdown);
+    setLightNoteHtml(initialHtml);
+  }, [lightNoteHtml, setLightNoteHtml]);
+
+  useEffect(() => {
+    if (!lightNoteEditorRef.current) return;
+    if (lightNoteEditorRef.current.innerHTML !== lightNoteHtml) {
+      lightNoteEditorRef.current.innerHTML = lightNoteHtml;
+    }
+  }, [lightNoteHtml]);
+
+  const runLightNoteCommand = (command: string, value?: string): void => {
+    if (!lightNoteEditorRef.current) return;
+    lightNoteEditorRef.current.focus({ preventScroll: true });
+    document.execCommand(command, false, value);
+    setLightNoteHtml(sanitizeLightNoteHtml(lightNoteEditorRef.current.innerHTML));
+  };
+
+  const insertLightNoteLink = (): void => {
+    const url = window.prompt("输入链接地址", "https://");
+    if (!url) return;
+    runLightNoteCommand("createLink", url);
+  };
+
+  const handleLightNotePaste = (event: ReactClipboardEvent<HTMLDivElement>): void => {
+    event.preventDefault();
+    const html = event.clipboardData.getData("text/html");
+    const text = event.clipboardData.getData("text/plain");
+
+    if (html) document.execCommand("insertHTML", false, sanitizeLightNoteHtml(html));
+    else if (text) document.execCommand("insertText", false, text);
+
+    if (!lightNoteEditorRef.current) return;
+    setLightNoteHtml(sanitizeLightNoteHtml(lightNoteEditorRef.current.innerHTML));
+  };
+
+  useEffect(() => {
+    const unsubscribe = window.cloudo.onQuickPanelToggleTask((todoId) => {
+      const target = quickPanelItems.find((item) => item.todoId === todoId);
+      const nextCompleted = !(target?.completed ?? false);
+
+      setTodosState((prev) =>
+        prev.map((todo) => (todo.id === todoId ? { ...todo, completed: nextCompleted } : todo))
+      );
+      setScheduledItems((prev) =>
+        prev.map((item) => (item.todoId === todoId ? { ...item, completed: nextCompleted } : item))
+      );
+    });
+    return unsubscribe;
+  }, [quickPanelItems, setScheduledItems, setTodosState]);
+
+  useEffect(() => {
+    void window.cloudo.updateQuickPanelState(quickPanelItems);
+  }, [quickPanelItems]);
+
+  useEffect(() => {
+    const today = formatDateKey(new Date());
+    setCurrentDateKey(today);
+    setSelectedDateKey(today);
+  }, [setSelectedDateKey]);
+
+  useEffect(() => {
+    const focusCreate = (): void => {
+      requestAnimationFrame(() => {
+        quickCreateTitleRef.current?.focus();
+      });
+    };
+
+    const onCustomFocus = (): void => focusCreate();
+    window.addEventListener("cloudo:focusQuickCreate", onCustomFocus);
+
+    return () => {
+      window.removeEventListener("cloudo:focusQuickCreate", onCustomFocus);
+    };
+  }, []);
+
+  const scrollTimelineToMinute = useCallback((minuteOfDay: number, behavior: ScrollBehavior = "smooth"): void => {
+    if (!timelineRef.current) return;
+    const targetTop = computeNowLineTop(minuteOfDay, PIXELS_PER_HOUR) - timelineRef.current.clientHeight * 0.28;
+    const max = Math.max(0, timelineRef.current.scrollHeight - timelineRef.current.clientHeight);
+    const next = Math.max(0, Math.min(max, targetTop));
+    timelineRef.current.scrollTo({ top: next, behavior });
+  }, []);
+
+  useEffect(() => {
+    const tick = (): void => {
+      const now = new Date();
+      setNowMinute(computeMinuteOfDay(now));
+      setCurrentDateKey(formatDateKey(now));
+    };
+
+    tick();
+    const timer = window.setInterval(tick, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let timer = 0;
+    const schedule = (): void => {
+      const now = new Date();
+      const wait = computeMsUntilNextMidnight(now) + 24;
+      timer = window.setTimeout(() => {
+        const freshNow = new Date();
+        const today = formatDateKey(freshNow);
+        setCurrentDateKey(today);
+        setNowMinute(computeMinuteOfDay(freshNow));
+        setSelectedDateKey(today);
+        if (calendarView === "day") {
+          requestAnimationFrame(() => scrollTimelineToMinute(computeMinuteOfDay(freshNow), "smooth"));
+        }
+        schedule();
+      }, wait);
+    };
+
+    schedule();
+    return () => window.clearTimeout(timer);
+  }, [calendarView, scrollTimelineToMinute, setSelectedDateKey]);
+
+  useEffect(() => {
+    let timer = 0;
+
+    const recycleTodayUnfinished = (): void => {
+      const today = formatDateKey(new Date());
+      const recycled: ScheduledItem[] = [];
+
+      setScheduledItems((prev) =>
+        prev.filter((item) => {
+          const completed = item.completed ?? false;
+          const shouldRecycle = isSameDateKey(item.date, today) && !completed;
+          if (shouldRecycle) recycled.push(item);
+          return !shouldRecycle;
+        })
+      );
+
+      if (recycled.length === 0) return;
+
+      setTodosState((prev) => {
+        const next = [...prev];
+        for (const source of recycled) {
+          const idx = next.findIndex((todo) => todo.id === source.todoId || (todo.title === source.title && todo.project === source.project));
+          const candidate = scheduleToTodoCandidate(source);
+          if (idx >= 0) {
+            next[idx] = { ...next[idx], durationMinutes: candidate.durationMinutes, details: candidate.details, completed: false };
+          } else {
+            next.unshift({ ...candidate, id: source.todoId || generateId() });
+          }
+        }
+        return next;
+      });
+    };
+
+    const scheduleRecycle = (): void => {
+      const now = new Date();
+      const wait = computeMsUntilTodayRecycle(now);
+      timer = window.setTimeout(() => {
+        recycleTodayUnfinished();
+        scheduleRecycle();
+      }, wait);
+    };
+
+    scheduleRecycle();
+    return () => window.clearTimeout(timer);
+  }, [setScheduledItems, setTodosState]);
+
+  useEffect(() => {
+    if (calendarView !== "day") return;
+    if (!isSameDateKey(selectedDateKey, currentDateKey)) return;
+    scrollTimelineToMinute(nowMinute, "smooth");
+  }, [calendarView, currentDateKey, nowMinute, scrollTimelineToMinute, selectedDateKey]);
+
 
   useEffect(() => {
     const onMouseMove = (event: MouseEvent): void => {
@@ -233,15 +444,22 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
       if (!moveTaskRef.current || !timelineRef.current) return;
 
       const timelineRect = timelineRef.current.getBoundingClientRect();
+      const pointerY = event.clientY - timelineRect.top;
+      const autoScroll = computeAutoScrollDelta(pointerY, timelineRect.height, AUTO_SCROLL_EDGE, AUTO_SCROLL_SPEED);
+      if (autoScroll !== 0) {
+        const maxScrollTop = Math.max(0, timelineRef.current.scrollHeight - timelineRef.current.clientHeight);
+        timelineRef.current.scrollTop = Math.max(0, Math.min(maxScrollTop, timelineRef.current.scrollTop + autoScroll));
+      }
+
       const relativeY = event.clientY - timelineRect.top + timelineRef.current.scrollTop;
       const pointerMinute = Math.round((Math.max(0, Math.min(relativeY, HOURS.length * PIXELS_PER_HOUR)) / PIXELS_PER_HOUR) * 60);
 
       const { itemId, offsetMinutes, durationMinutes } = moveTaskRef.current;
       const rawStart = pointerMinute - offsetMinutes;
-      const boundedStart = Math.max(0, Math.min(TOTAL_MINUTES - durationMinutes, rawStart));
-      const boundedEnd = boundedStart + durationMinutes;
-      const startClock = toClock(boundedStart);
-      const endClock = toClock(boundedEnd);
+      const snappedStart = snapToStep(rawStart, SNAP_MINUTES);
+      const range = boundRange(snappedStart, durationMinutes, TOTAL_MINUTES);
+      const startClock = toClock(range.start);
+      const endClock = toClock(range.end);
 
       setScheduledItems((prev) =>
         prev.map((item) =>
@@ -274,18 +492,29 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
   }, []);
 
   useEffect(() => {
+    if (calendarView !== "day") return;
     if (!timelineRef.current) return;
 
-    const observer = new ResizeObserver(() => {
+    const syncTimelineWidth = (): void => {
       if (!timelineRef.current) return;
       setTimelineWidth(timelineRef.current.clientWidth);
+    };
+
+    const observer = new ResizeObserver(() => {
+      syncTimelineWidth();
     });
 
     observer.observe(timelineRef.current);
-    setTimelineWidth(timelineRef.current.clientWidth);
+    syncTimelineWidth();
+    const raf = window.requestAnimationFrame(syncTimelineWidth);
+    window.addEventListener("resize", syncTimelineWidth);
 
-    return () => observer.disconnect();
-  }, []);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener("resize", syncTimelineWidth);
+      observer.disconnect();
+    };
+  }, [calendarView, paneWidths.left, paneWidths.middle, paneWidths.right]);
 
   const startResize = (divider: 0 | 1) => (event: ReactMouseEvent<HTMLDivElement>): void => {
     resizingRef.current = { divider, startX: event.clientX, start: paneWidths };
@@ -295,21 +524,32 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
   const addTodo = (): void => {
     const title = newTodoTitle.trim();
     if (!title) return;
+    const details = newTodoDetail.trim();
     setTodosState((prev) => [
       {
         id: generateId(),
         title,
         project: newTodoProject.trim() || "默认项目",
         durationMinutes: Math.max(15, newTodoDuration),
+        details,
         completed: false
       },
       ...prev
     ]);
     setNewTodoTitle("");
+    setNewTodoDetail("");
   };
 
   const toggleTodo = (id: string): void => {
-    setTodosState((prev) => prev.map((todo) => (todo.id === id ? { ...todo, completed: !todo.completed } : todo)));
+    setTodosState((prev) => {
+      const current = prev.find((todo) => todo.id === id);
+      if (!current) return prev;
+      const nextCompleted = toggleTodoCompleted(current.completed);
+      setScheduledItems((scheduledPrev) =>
+        scheduledPrev.map((item) => (item.todoId === id ? { ...item, completed: nextCompleted } : item))
+      );
+      return prev.map((todo) => (todo.id === id ? { ...todo, completed: nextCompleted } : todo));
+    });
   };
 
   const deleteTodo = (id: string): void => {
@@ -334,7 +574,9 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
         startMinute: start.minute,
         endHour: end.hour,
         endMinute: end.minute,
-        date: dateKey
+        date: dateKey,
+        details: todo.details ?? "",
+        completed: todo.completed
       }
     ]);
   };
@@ -346,12 +588,19 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
 
     const rect = timelineRef.current.getBoundingClientRect();
     const relativeY = event.clientY - rect.top + timelineRef.current.scrollTop;
-    const clampedY = Math.max(0, Math.min(relativeY, HOURS.length * PIXELS_PER_HOUR));
-    const startMinute = Math.round((clampedY / PIXELS_PER_HOUR) * 60);
     const duration = Math.max(MIN_ITEM_MINUTES, todo.durationMinutes);
-    const maxStart = TOTAL_MINUTES - duration;
-    const boundedStart = Math.max(0, Math.min(maxStart, startMinute));
-    return { start: boundedStart, end: boundedStart + duration };
+    return pointerToSnappedRange(relativeY, duration, TOTAL_MINUTES, PIXELS_PER_HOUR, SNAP_MINUTES);
+  };
+
+  const maybeAutoScrollTimeline = (clientY: number): void => {
+    if (!timelineRef.current) return;
+    const rect = timelineRef.current.getBoundingClientRect();
+    const pointerY = clientY - rect.top;
+    const delta = computeAutoScrollDelta(pointerY, rect.height, AUTO_SCROLL_EDGE, AUTO_SCROLL_SPEED);
+    if (delta === 0) return;
+
+    const maxScrollTop = Math.max(0, timelineRef.current.scrollHeight - timelineRef.current.clientHeight);
+    timelineRef.current.scrollTop = Math.max(0, Math.min(maxScrollTop, timelineRef.current.scrollTop + delta));
   };
 
   const handleTodoDragStart = (event: DragEvent<HTMLLIElement>, todoId: string): void => {
@@ -378,6 +627,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
   const handleTimelineDragOver = (event: DragEvent<HTMLDivElement>): void => {
     event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
+    maybeAutoScrollTimeline(event.clientY);
 
     const range = calculateRangeFromPointer(event);
     if (!range || !draggingTodoId) {
@@ -402,6 +652,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     if (!range) return;
 
     createScheduleFromTodo(todo, selectedDateKey, range.start);
+    setTodosState((prev) => removeTodoAfterSchedule(prev, todo.id));
     setDropPreview(null);
     setDraggingTodoId(null);
   };
@@ -414,8 +665,74 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     if (!todo) return;
 
     createScheduleFromTodo(todo, dateKey, 60);
+    setTodosState((prev) => removeTodoAfterSchedule(prev, todo.id));
     setDraggingTodoId(null);
     setDropPreview(null);
+  };
+
+  const handleScheduleDragStart = (event: DragEvent<HTMLButtonElement>, item: ScheduledItem): void => {
+    event.dataTransfer.setData("application/x-cloudo-schedule-id", item.id);
+    event.dataTransfer.effectAllowed = "copyMove";
+    setDraggingScheduleId(item.id);
+  };
+
+  const handleScheduleDragEnd = (): void => {
+    setDraggingScheduleId(null);
+  };
+
+  const dropScheduleToTodoPool = (event: DragEvent<HTMLElement>): void => {
+    event.preventDefault();
+    const scheduleId = event.dataTransfer.getData("application/x-cloudo-schedule-id") || draggingScheduleId;
+    if (!scheduleId) return;
+
+    const source = scheduledItems.find((item) => item.id === scheduleId);
+    if (!source) return;
+
+    setScheduledItems((prev) => prev.filter((item) => item.id !== scheduleId));
+    setDraggingScheduleId(null);
+
+    setTodosState((prev) => {
+      const idx = prev.findIndex((todo) => todo.id === source.todoId || (todo.title === source.title && todo.project === source.project));
+      const todoCandidate = scheduleToTodoCandidate(source);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = {
+          ...next[idx],
+          durationMinutes: todoCandidate.durationMinutes,
+          details: todoCandidate.details,
+          completed: false
+        };
+        return next;
+      }
+
+      return [{ ...todoCandidate, id: source.todoId || generateId() }, ...prev];
+    });
+  };
+
+  const insertTaskCardToLightNote = (item: ScheduledItem): void => {
+    if (!lightNoteEditorRef.current) return;
+    const timeLabel = `${formatTime(item.startHour, item.startMinute)} - ${formatTime(item.endHour, item.endMinute)}`;
+    const html = buildTaskReferenceCardHtml({
+      taskId: item.todoId,
+      title: item.title,
+      project: item.project,
+      timeLabel
+    });
+
+    lightNoteEditorRef.current.focus({ preventScroll: true });
+    document.execCommand("insertHTML", false, html);
+    setLightNoteHtml(sanitizeLightNoteHtml(lightNoteEditorRef.current.innerHTML));
+  };
+
+  const handleLightNoteDrop = (event: DragEvent<HTMLDivElement>): void => {
+    event.preventDefault();
+    const scheduleId = event.dataTransfer.getData("application/x-cloudo-schedule-id") || draggingScheduleId;
+    if (!scheduleId) return;
+    const source = scheduledItems.find((item) => item.id === scheduleId);
+    if (!source) return;
+
+    insertTaskCardToLightNote(source);
+    setDraggingScheduleId(null);
   };
 
   const handleTimelineItemMouseDown = (event: ReactMouseEvent<HTMLElement>, item: ScheduledItem): void => {
@@ -443,7 +760,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     setScheduledItems((prev) => prev.filter((item) => item.id !== scheduleId));
   };
 
-  const timelineUsableWidth = Math.max(MIN_CARD_WIDTH, timelineWidth - TIMELINE_PADDING * 2);
+  const timelineUsableWidth = computeTimelineUsableWidth(timelineWidth, TIMELINE_PADDING, TIMELINE_LABEL_WIDTH, MIN_CARD_WIDTH);
 
   return (
     <section className="page">
@@ -453,6 +770,12 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
           <button type="button" className={calendarView === "day" ? "chip active" : "chip"} onClick={() => setCalendarView("day")}>日视图</button>
           <button type="button" className={calendarView === "week" ? "chip active" : "chip"} onClick={() => setCalendarView("week")}>周视图</button>
           <button type="button" className={calendarView === "month" ? "chip active" : "chip"} onClick={() => setCalendarView("month")}>月视图</button>
+          <button type="button" className="chip" onClick={() => void window.cloudo.toggleQuickPanelWindow()} title="快捷浮窗 Alt+Q">
+            快捷浮窗
+          </button>
+          <button type="button" className="chip" onClick={() => quickCreateTitleRef.current?.focus()} title="快捷创建 Alt+N">
+            快速创建
+          </button>
         </div>
       </header>
 
@@ -461,13 +784,17 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
         className="three-pane"
         style={{ gridTemplateColumns: `${paneWidths.left}% 8px ${paneWidths.middle}% 8px ${paneWidths.right}%` }}
       >
-        <section className="panel left">
+        <section
+          className={draggingScheduleId ? "panel left todo-drop-active" : "panel left"}
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={dropScheduleToTodoPool}
+        >
           <div className="panel-title-row">
             <h3>待办</h3>
           </div>
 
           <div className="todo-create-form">
-            <input value={newTodoTitle} onChange={(e) => setNewTodoTitle(e.target.value)} placeholder="输入待办标题" />
+            <input ref={quickCreateTitleRef} value={newTodoTitle} onChange={(e) => setNewTodoTitle(e.target.value)} placeholder="输入待办标题" />
             <input value={newTodoProject} onChange={(e) => setNewTodoProject(e.target.value)} placeholder="项目名" />
             <input
               type="number"
@@ -477,6 +804,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
               onChange={(e) => setNewTodoDuration(Number(e.target.value) || 60)}
               placeholder="时长(分钟)"
             />
+            <textarea value={newTodoDetail} onChange={(e) => setNewTodoDetail(e.target.value)} placeholder="输入待办详情（可选）" />
             <button className="accent-btn" type="button" onClick={addTodo}>新建待办</button>
           </div>
 
@@ -493,9 +821,23 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
                 <p className="todo-meta">{todo.project}</p>
                 <p className="todo-meta">{todo.durationMinutes} 分钟</p>
                 <div className="todo-actions">
-                  <button type="button" onClick={() => toggleTodo(todo.id)}>{todo.completed ? "恢复" : "完成"}</button>
-                  <button type="button" onClick={() => deleteTodo(todo.id)}>删除</button>
+                  <button type="button" title={todo.completed ? "恢复" : "完成"} onClick={() => toggleTodo(todo.id)}>
+                    {todo.completed ? <RotateCcw size={14} /> : <Check size={14} />}
+                  </button>
+                  <button
+                    type="button"
+                    title={openedTodoDetailId === todo.id ? "收起详情" : "查看详情"}
+                    onClick={() => setOpenedTodoDetailId((prev) => (prev === todo.id ? null : todo.id))}
+                  >
+                    {openedTodoDetailId === todo.id ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                  <button type="button" title="删除" onClick={() => deleteTodo(todo.id)}>
+                    <Trash2 size={14} />
+                  </button>
                 </div>
+                {openedTodoDetailId === todo.id ? (
+                  <div className="todo-detail">{todo.details?.trim() ? todo.details : "暂无详情"}</div>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -512,13 +854,15 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
           {calendarView === "day" ? (
             <div ref={timelineRef} className={dropPreview ? "timeline drop-active" : "timeline"} onDragOver={handleTimelineDragOver} onDrop={handleTimelineDrop}>
               {HOURS.map((hour) => (
-                <div key={hour} className="timeline-row" />
+                <div key={hour} className="timeline-row">
+                  <span className="timeline-hour">{`${hour}:00`}</span>
+                </div>
               ))}
 
               {positionedItems.map((item) => {
                 const start = toMinutes(item.startHour, item.startMinute);
                 const end = toMinutes(item.endHour, item.endMinute);
-                const laneWidth = Math.max(MIN_CARD_WIDTH, (timelineUsableWidth - (item.laneCount - 1) * LANE_GAP) / item.laneCount);
+                const laneWidth = computeLaneWidth(timelineUsableWidth, item.laneCount, LANE_GAP, MIN_CARD_WIDTH);
 
                 return (
                   <article
@@ -528,13 +872,41 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
                     style={{
                       top: `${(start / 60) * PIXELS_PER_HOUR}px`,
                       height: `${(Math.max(MIN_ITEM_MINUTES, end - start) / 60) * PIXELS_PER_HOUR}px`,
-                      left: `${TIMELINE_PADDING + item.lane * (laneWidth + LANE_GAP)}px`,
+                      left: `${TIMELINE_PADDING + TIMELINE_LABEL_WIDTH + item.lane * (laneWidth + LANE_GAP)}px`,
                       width: `${laneWidth}px`
                     }}
                   >
+                    <button
+                      type="button"
+                      className="timeline-detail-btn"
+                      title="详情"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={() => setOpenedScheduleDetailId(item.id)}
+                    >
+                      <Eye size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      className="timeline-remove-btn"
+                      title="移除"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={() => removeSchedule(item.id)}
+                    >
+                      <X size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      className="timeline-drag-handle"
+                      title="拖拽到待办或轻笔记"
+                      draggable
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onDragStart={(event) => handleScheduleDragStart(event, item)}
+                      onDragEnd={handleScheduleDragEnd}
+                    >
+                      <GripVertical size={13} />
+                    </button>
                     <p className="timeline-title">{item.title}</p>
                     <p className="timeline-meta">{formatTime(item.startHour, item.startMinute)} - {formatTime(item.endHour, item.endMinute)}</p>
-                    <button type="button" className="tiny-btn" onMouseDown={(e) => e.stopPropagation()} onClick={() => removeSchedule(item.id)}>移除</button>
                   </article>
                 );
               })}
@@ -545,15 +917,19 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
                   style={{
                     top: `${(dropPreview.start / 60) * PIXELS_PER_HOUR}px`,
                     height: `${((dropPreview.end - dropPreview.start) / 60) * PIXELS_PER_HOUR}px`,
-                    left: `${TIMELINE_PADDING}px`,
+                    left: `${TIMELINE_PADDING + TIMELINE_LABEL_WIDTH}px`,
                     width: `${Math.min(280, Math.max(MIN_CARD_WIDTH, timelineUsableWidth * 0.6))}px`
                   }}
                 >
                   <p className="timeline-title">{dropPreview.title}</p>
+                  <p className="timeline-meta">
+                    {formatTime(toClock(dropPreview.start).hour, toClock(dropPreview.start).minute)} - {formatTime(toClock(dropPreview.end).hour, toClock(dropPreview.end).minute)}
+                  </p>
+                  <p className="timeline-meta">Drop here</p>
                 </article>
               ) : null}
 
-              <div className="now-line" />
+              {selectedDateKey === currentDateKey ? <div className="now-line" style={{ top: `${computeNowLineTop(nowMinute, PIXELS_PER_HOUR)}px` }} /> : null}
             </div>
           ) : null}
 
@@ -561,7 +937,10 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
             <div className="week-grid">
               {weekDates.map((date) => {
                 const key = formatDateKey(date);
-                const items = scheduledItems.filter((it) => it.date === key);
+                const items = scheduledItems
+                  .filter((it) => it.date === key)
+                  .sort((a, b) => toMinutes(a.startHour, a.startMinute) - toMinutes(b.startHour, b.startMinute));
+                const isExpanded = expandedWeekDateKey === key;
                 return (
                   <section
                     key={key}
@@ -569,15 +948,51 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => dropTodoToDate(e, key)}
                   >
-                    <button type="button" className="week-date-btn" onClick={() => { setSelectedDateKey(key); setCalendarView("day"); }}>{key.slice(5)}</button>
+                    <button
+                      type="button"
+                      className={isExpanded ? "week-date-btn active" : "week-date-btn"}
+                      onClick={() => setExpandedWeekDateKey((prev) => toggleWeekExpandedDate(prev, key))}
+                    >
+                      {key.slice(5)}
+                    </button>
+                    <p className="soft-text">{items.length} 个任务</p>
                     <div className="week-items">
-                      {items.map((it) => (
+                      {items.slice(0, 4).map((it) => (
                         <article key={it.id} className="week-item">
                           <span>{it.title}</span>
-                          <span className="soft-text">{formatTime(it.startHour, it.startMinute)}</span>
+                          <span className="soft-text">{formatTime(it.startHour, it.startMinute)}-{formatTime(it.endHour, it.endMinute)}</span>
                         </article>
                       ))}
                     </div>
+                    {isExpanded ? (
+                      <div className="week-expanded-day">
+                        {HOURS.map((hour) => (
+                          <div key={`${key}-${hour}`} className="week-expanded-row">
+                            <span>{`${hour.toString().padStart(2, "0")}:00`}</span>
+                          </div>
+                        ))}
+                        {items.map((it) => {
+                          const start = toMinutes(it.startHour, it.startMinute);
+                          const end = toMinutes(it.endHour, it.endMinute);
+                          return (
+                            <article
+                              key={`expanded-${it.id}`}
+                              className="week-expanded-card"
+                              onClick={() => {
+                                setSelectedDateKey(key);
+                                setCalendarView("day");
+                              }}
+                              style={{
+                                top: `${(start / 60) * 24}px`,
+                                height: `${(Math.max(15, end - start) / 60) * 24}px`
+                              }}
+                            >
+                              <span>{it.title}</span>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    ) : null}
                   </section>
                 );
               })}
@@ -610,23 +1025,71 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
 
         <section className="panel right light-note-panel">
           <div className="note-toolbar">
-            <span className="soft-text">轻笔记（Markdown）</span>
-            <div className="note-mode-switch">
-              <button type="button" className={noteMode === "edit" ? "chip active" : "chip"} onClick={() => setNoteMode("edit")}>编辑</button>
-              <button type="button" className={noteMode === "preview" ? "chip active" : "chip"} onClick={() => setNoteMode("preview")}>预览</button>
+            <span className="soft-text">轻笔记（直接记录）</span>
+            <div className="light-note-tools">
+              <button type="button" className="tiny-btn icon-only" title="加粗" onClick={() => runLightNoteCommand("bold")}>
+                <Bold size={14} />
+              </button>
+              <button type="button" className="tiny-btn icon-only" title="斜体" onClick={() => runLightNoteCommand("italic")}>
+                <Italic size={14} />
+              </button>
+              <button type="button" className="tiny-btn icon-only" title="无序列表" onClick={() => runLightNoteCommand("insertUnorderedList")}>
+                <List size={14} />
+              </button>
+              <button type="button" className="tiny-btn icon-only" title="插入链接" onClick={insertLightNoteLink}>
+                <Link2 size={14} />
+              </button>
             </div>
           </div>
 
-          {noteMode === "edit" ? (
-            <textarea className="md-note-input" value={lightNote} onChange={(event) => setLightNote(event.target.value)} />
-          ) : (
-            <MarkdownPreview className="md-preview" content={lightNote} />
-          )}
+          <div
+            ref={lightNoteEditorRef}
+            className={draggingScheduleId ? "md-note-input light-note-editor light-note-scroll note-drop-active" : "md-note-input light-note-editor light-note-scroll"}
+            contentEditable
+            suppressContentEditableWarning
+            onInput={() => {
+              if (!lightNoteEditorRef.current) return;
+              setLightNoteHtml(sanitizeLightNoteHtml(lightNoteEditorRef.current.innerHTML));
+            }}
+            onPaste={handleLightNotePaste}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={handleLightNoteDrop}
+          />
         </section>
       </div>
+
+      {openedScheduleDetailId ? (
+        <div className="schedule-detail-mask" onClick={() => setOpenedScheduleDetailId(null)}>
+          <section className="schedule-detail-modal" onClick={(event) => event.stopPropagation()}>
+            {(() => {
+              const current = scheduledItems.find((item) => item.id === openedScheduleDetailId);
+              if (!current) return <p className="soft-text">任务不存在</p>;
+              const linked = todosById.get(current.todoId);
+              return (
+                <>
+                  <h3>{current.title}</h3>
+                  <p className="soft-text">{current.project}</p>
+                  <p className="soft-text">{formatTime(current.startHour, current.startMinute)} - {formatTime(current.endHour, current.endMinute)}</p>
+                  <p className="todo-detail">{linked?.details?.trim() ? linked.details : current.details?.trim() ? current.details : "暂无详情"}</p>
+                </>
+              );
+            })()}
+          </section>
+        </div>
+      ) : null}
+
     </section>
   );
 }
+
+
+
+
+
+
+
+
+
 
 
 

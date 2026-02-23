@@ -1,10 +1,11 @@
-export type AppPage = "time_manager" | "notes" | "settings";
+﻿export type AppPage = "time_manager" | "notes" | "settings";
 
 export interface TodoItem {
   id: string;
   title: string;
   project: string;
   durationMinutes: number;
+  details?: string;
   completed: boolean;
 }
 
@@ -29,6 +30,9 @@ export interface NoteDocument {
 
 export interface AppSettings {
   opacity: number;
+  quickPanelOpacity: number;
+  quickPanelHotkey: string;
+  quickCreateTodoHotkey: string;
   defaultTaskDuration: number;
   defaultProject: string;
 }

@@ -1,12 +1,25 @@
 ﻿import path from "node:path";
-import { app, BrowserWindow, globalShortcut, ipcMain, nativeImage } from "electron";
 import fs from "node:fs/promises";
+import { app, BrowserWindow, globalShortcut, ipcMain, nativeImage } from "electron";
 
-const HOTKEY = "Alt+Space";
+const MAIN_TOGGLE_HOTKEY = "Alt+Space";
+const DEFAULT_DYNAMIC_HOTKEYS = {
+  toggleQuickPanel: "Alt+Q",
+  quickCreateTodo: "Alt+N"
+} as const;
+const APP_ICON_PATH = path.join(__dirname, "../etc", "云朵待办.png");
+
+type DynamicHotkeys = {
+  toggleQuickPanel: string;
+  quickCreateTodo: string;
+};
+
 let mainWindow: BrowserWindow | null = null;
-const APP_ICON_PATH = path.join(__dirname, "../etc", "\u4e91\u6735\u5f85\u529e.png");
+let quickPanelWindow: BrowserWindow | null = null;
+let quickPanelOpacity = 0.88;
+let quickPanelState: unknown[] = [];
+let dynamicHotkeys: DynamicHotkeys = { ...DEFAULT_DYNAMIC_HOTKEYS };
 
-// Ensure CSS native scrollbar styling applies consistently on Windows/Electron.
 app.commandLine.appendSwitch("disable-features", "OverlayScrollbar,OverlayScrollbars,OverlayScrollbarFlashAfterAnyScrollUpdate");
 
 function resolveAppIcon(): Electron.NativeImage | undefined {
@@ -15,7 +28,18 @@ function resolveAppIcon(): Electron.NativeImage | undefined {
   return icon;
 }
 
-function createWindow(): BrowserWindow {
+async function loadRenderer(win: BrowserWindow, view?: "quick-panel"): Promise<void> {
+  const devUrl = process.env.VITE_DEV_SERVER_URL;
+  if (devUrl) {
+    const url = view ? `${devUrl}?view=${view}` : devUrl;
+    await win.loadURL(url);
+    return;
+  }
+
+  await win.loadFile(path.join(__dirname, "../dist/index.html"), view ? { query: { view } } : undefined);
+}
+
+function createMainWindow(): BrowserWindow {
   const icon = resolveAppIcon();
   const win = new BrowserWindow({
     width: 1200,
@@ -31,18 +55,56 @@ function createWindow(): BrowserWindow {
     }
   });
 
-  const devUrl = process.env.VITE_DEV_SERVER_URL;
-  if (devUrl) {
-    void win.loadURL(devUrl);
-  } else {
-    void win.loadFile(path.join(__dirname, "../dist/index.html"));
-  }
+  void loadRenderer(win);
 
   win.once("ready-to-show", () => {
     win.show();
   });
 
   return win;
+}
+
+function createQuickPanelWindow(): BrowserWindow {
+  const icon = resolveAppIcon();
+  const win = new BrowserWindow({
+    width: 460,
+    height: 620,
+    show: false,
+    frame: false,
+    transparent: true,
+    hasShadow: true,
+    resizable: false,
+    movable: true,
+    alwaysOnTop: true,
+    skipTaskbar: false,
+    backgroundColor: "#00000000",
+    icon,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  win.setOpacity(quickPanelOpacity);
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  void loadRenderer(win, "quick-panel");
+
+  win.webContents.on("did-finish-load", () => {
+    win.webContents.send("quick-panel:state", quickPanelState);
+  });
+
+  win.on("closed", () => {
+    if (quickPanelWindow === win) quickPanelWindow = null;
+  });
+
+  return win;
+}
+
+function getQuickPanelWindow(): BrowserWindow {
+  if (quickPanelWindow && !quickPanelWindow.isDestroyed()) return quickPanelWindow;
+  quickPanelWindow = createQuickPanelWindow();
+  return quickPanelWindow;
 }
 
 function toggleWindowVisibility(): void {
@@ -53,6 +115,72 @@ function toggleWindowVisibility(): void {
   }
   mainWindow.show();
   mainWindow.focus();
+}
+
+function toggleQuickPanelVisibility(): void {
+  const win = getQuickPanelWindow();
+  if (win.isVisible()) {
+    win.hide();
+    return;
+  }
+  win.show();
+  win.focus();
+}
+
+function focusQuickCreateOnMainWindow(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    mainWindow = createMainWindow();
+  }
+  mainWindow.show();
+  mainWindow.focus();
+  mainWindow.webContents.send("quick-create:focus");
+}
+
+function sanitizeAccelerator(input: string): string {
+  return input.trim();
+}
+
+function tryRegisterAccelerator(accelerator: string, action: () => void): boolean {
+  return globalShortcut.register(accelerator, action);
+}
+
+function registerDynamicHotkeys(next: DynamicHotkeys): { ok: boolean; message?: string } {
+  const toggleQuickPanel = sanitizeAccelerator(next.toggleQuickPanel);
+  const quickCreateTodo = sanitizeAccelerator(next.quickCreateTodo);
+
+  if (!toggleQuickPanel || !quickCreateTodo) {
+    return { ok: false, message: "快捷键不能为空" };
+  }
+
+  if (toggleQuickPanel.toLowerCase() === quickCreateTodo.toLowerCase()) {
+    return { ok: false, message: "两个快捷键不能相同" };
+  }
+
+  const prev = { ...dynamicHotkeys };
+  globalShortcut.unregister(prev.toggleQuickPanel);
+  globalShortcut.unregister(prev.quickCreateTodo);
+
+  const regToggle = tryRegisterAccelerator(toggleQuickPanel, () => {
+    toggleQuickPanelVisibility();
+  });
+  if (!regToggle) {
+    void tryRegisterAccelerator(prev.toggleQuickPanel, () => toggleQuickPanelVisibility());
+    void tryRegisterAccelerator(prev.quickCreateTodo, () => focusQuickCreateOnMainWindow());
+    return { ok: false, message: `快捷键冲突或无效: ${toggleQuickPanel}` };
+  }
+
+  const regCreate = tryRegisterAccelerator(quickCreateTodo, () => {
+    focusQuickCreateOnMainWindow();
+  });
+  if (!regCreate) {
+    globalShortcut.unregister(toggleQuickPanel);
+    void tryRegisterAccelerator(prev.toggleQuickPanel, () => toggleQuickPanelVisibility());
+    void tryRegisterAccelerator(prev.quickCreateTodo, () => focusQuickCreateOnMainWindow());
+    return { ok: false, message: `快捷键冲突或无效: ${quickCreateTodo}` };
+  }
+
+  dynamicHotkeys = { toggleQuickPanel, quickCreateTodo };
+  return { ok: true };
 }
 
 async function ensureDataDirs(): Promise<string> {
@@ -66,15 +194,17 @@ async function ensureDataDirs(): Promise<string> {
 app.whenReady().then(async () => {
   app.setAppUserModelId("com.cloudo.app");
   await ensureDataDirs();
-  mainWindow = createWindow();
+  mainWindow = createMainWindow();
 
-  globalShortcut.register(HOTKEY, () => {
+  globalShortcut.register(MAIN_TOGGLE_HOTKEY, () => {
     toggleWindowVisibility();
   });
 
+  void registerDynamicHotkeys(dynamicHotkeys);
+
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      mainWindow = createWindow();
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      mainWindow = createMainWindow();
     }
   });
 });
@@ -93,9 +223,37 @@ ipcMain.handle("window:setOpacity", (_event, value: number) => {
   mainWindow.setOpacity(normalized);
 });
 
-ipcMain.handle("storage:getBaseDir", async () => ensureDataDirs());
-
 ipcMain.handle("window:toggle", () => {
   toggleWindowVisibility();
 });
 
+ipcMain.handle("window:toggleQuickPanel", () => {
+  toggleQuickPanelVisibility();
+});
+
+ipcMain.handle("quickPanel:setOpacity", (_event, value: number) => {
+  quickPanelOpacity = Math.max(0.2, Math.min(1, value));
+  if (quickPanelWindow && !quickPanelWindow.isDestroyed()) {
+    quickPanelWindow.setOpacity(quickPanelOpacity);
+  }
+});
+
+ipcMain.handle("quickPanel:updateState", (_event, payload: unknown[]) => {
+  quickPanelState = Array.isArray(payload) ? payload : [];
+  if (quickPanelWindow && !quickPanelWindow.isDestroyed()) {
+    quickPanelWindow.webContents.send("quick-panel:state", quickPanelState);
+  }
+});
+
+ipcMain.handle("quickPanel:toggleTask", (_event, todoId: unknown) => {
+  if (!mainWindow || typeof todoId !== "string" || !todoId.trim()) return;
+  mainWindow.webContents.send("quick-panel:toggle-task", todoId);
+});
+
+ipcMain.handle("hotkeys:getDynamic", () => dynamicHotkeys);
+
+ipcMain.handle("hotkeys:setDynamic", (_event, next: DynamicHotkeys) => {
+  return registerDynamicHotkeys(next);
+});
+
+ipcMain.handle("storage:getBaseDir", async () => ensureDataDirs());

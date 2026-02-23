@@ -1,0 +1,365 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Superpowers 使用指南</title>
+  <style>
+    :root {
+      --bg: #f5f5f7;
+      --surface: #ffffff;
+      --text: #1d1d1f;
+      --muted: #6e6e73;
+      --line: #d2d2d7;
+      --accent: #0066cc;
+      --accent-soft: #e8f3ff;
+      --radius: 18px;
+      --shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+      --maxw: 860px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: "PingFang SC", "SF Pro Display", "Helvetica Neue", Helvetica, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1400px 600px at 20% -10%, #eaf3ff 0%, transparent 60%),
+        radial-gradient(1200px 500px at 90% -20%, #f0f7ff 0%, transparent 60%),
+        var(--bg);
+      line-height: 1.65;
+    }
+
+    .wrap {
+      width: min(var(--maxw), calc(100vw - 32px));
+      margin: 0 auto;
+    }
+
+    .hero {
+      padding: 92px 0 60px;
+      animation: fadeUp .8s ease-out both;
+    }
+
+    .eyebrow {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: .2px;
+    }
+
+    h1 {
+      margin: 16px 0 12px;
+      font-size: clamp(34px, 7vw, 56px);
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+      font-weight: 700;
+    }
+
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(16px, 2.6vw, 21px);
+      max-width: 680px;
+    }
+
+    .meta {
+      margin-top: 22px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    section {
+      margin: 24px 0;
+      animation: fadeUp .6s ease-out both;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: clamp(22px, 4vw, 36px);
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: clamp(24px, 4vw, 34px);
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+    }
+
+    h3 {
+      margin: 22px 0 10px;
+      font-size: 18px;
+      line-height: 1.35;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    .lead {
+      color: #3a3a3c;
+      font-size: 17px;
+      margin-bottom: 10px;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .step {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: #fcfcfd;
+    }
+
+    .step b {
+      display: block;
+      font-size: 13px;
+      color: var(--accent);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+
+    .tag {
+      display: inline-block;
+      font-size: 12px;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border-radius: 8px;
+      padding: 3px 8px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    .tips {
+      margin-top: 16px;
+      padding-left: 18px;
+    }
+
+    .tips li {
+      margin: 8px 0;
+    }
+
+    .prompt {
+      margin: 10px 0;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fafafa;
+      font-size: 14px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--line);
+      margin: 20px 0;
+    }
+
+    .checklist {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fcfcfd;
+    }
+
+    .item b {
+      color: #1d1d1f;
+    }
+
+    footer {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+      padding: 28px 0 42px;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(16px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 860px) {
+      .steps,
+      .checklist {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        padding-top: 68px;
+      }
+
+      .prompt {
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <span class="eyebrow">CloudTime / Superpowers</span>
+      <h1>Superpowers 深度使用指南</h1>
+      <p class="sub">从 30 秒上手，到可稳定复用的高级工作流。少说概念，多给可直接复制的做法。</p>
+      <p class="meta">面向对象：项目使用者 · 预计阅读：8-10 分钟</p>
+    </header>
+
+    <section>
+      <article class="card">
+        <h2>30 秒上手</h2>
+        <p class="lead">你只要记住一件事：先说目标，再点名技能，再给边界。</p>
+        <div class="steps">
+          <div class="step">
+            <b>Step 1</b>
+            说清目标：你要产出什么（页面、功能、修复、文档）。
+          </div>
+          <div class="step">
+            <b>Step 2</b>
+            点名技能：例如 <code>brainstorming</code>、<code>test-driven-development</code>。
+          </div>
+          <div class="step">
+            <b>Step 3</b>
+            给边界：文件位置、风格要求、是否需要测试与验证。
+          </div>
+        </div>
+        <h3>最短可用模板</h3>
+        <div class="prompt">请用 superpowers：先用 brainstorming 再实现。在 CloudTime/etc 新建一个简约 HTML，主题是 XXX，包含 A/B/C 三部分。</div>
+      </article>
+    </section>
+
+    <section>
+      <article class="card">
+        <h2>基础用法</h2>
+        <h3>1. 什么情况下要显式写技能名？</h3>
+        <p>当你希望流程可控、可复用、可追踪时，直接写技能名。你写得越明确，输出越稳定。</p>
+
+        <h3>2. 常用技能怎么选？</h3>
+        <ul class="tips">
+          <li><b>先想方案：</b><code>brainstorming</code></li>
+          <li><b>先写测试再实现：</b><code>test-driven-development</code></li>
+          <li><b>先产出计划：</b><code>writing-plans</code></li>
+          <li><b>收尾前验证：</b><code>verification-before-completion</code></li>
+          <li><b>完成后请求审查：</b><code>requesting-code-review</code></li>
+        </ul>
+
+        <h3>3. 一条高质量请求的结构</h3>
+        <p><b>目标</b> + <b>技能</b> + <b>范围</b> + <b>验收标准</b></p>
+        <div class="prompt">目标：新增设置页导出按钮；技能：brainstorming + test-driven-development；范围：只改 src/components/SettingsPage.tsx；验收：按钮可导出 JSON，异常有提示。</div>
+      </article>
+    </section>
+
+    <section>
+      <article class="card">
+        <h2>进阶用法</h2>
+        <p class="lead">把 superpowers 当成“流程编排器”，而不是“命令关键词”。</p>
+
+        <h3>工作流 A：新功能（稳） <span class="tag">推荐</span></h3>
+        <div class="prompt">brainstorming → writing-plans → test-driven-development → verification-before-completion → requesting-code-review</div>
+        <p>适合功能新增、页面重构、行为变更。优点是返工成本低，结论更可信。</p>
+
+        <h3>工作流 B：快速修复（快）</h3>
+        <div class="prompt">systematic-debugging → test-driven-development → verification-before-completion</div>
+        <p>适合线上问题和高优先级缺陷。先定位，再补测试，再修复。</p>
+
+        <h3>工作流 C：并行拆任务（大任务）</h3>
+        <div class="prompt">dispatching-parallel-agents + subagent-driven-development</div>
+        <p>适合 2 个以上互不依赖任务。用并行换时长，但要提前拆清边界和接口。</p>
+      </article>
+    </section>
+
+    <section>
+      <article class="card">
+        <h2>可复制场景模板</h2>
+        <h3>功能开发</h3>
+        <div class="prompt">请用 brainstorming 先给我 2-3 种实现方案，确认后用 test-driven-development 实现。目标：在 Notes 页面支持按标题筛选。</div>
+
+        <h3>界面改版</h3>
+        <div class="prompt">请用 brainstorming 明确信息架构与视觉方向，然后在 src/components 里落地一个简约风页面，优先移动端适配。</div>
+
+        <h3>问题排查</h3>
+        <div class="prompt">请用 systematic-debugging 排查启动白屏问题，先给假设和验证步骤，再实施修复并补测试。</div>
+
+        <h3>文档输出</h3>
+        <div class="prompt">请输出一份使用文档到 etc 目录，采用单页叙事式，先给设计提纲，确认后再创建 HTML 文件。</div>
+
+        <h3>收尾验证</h3>
+        <div class="prompt">请用 verification-before-completion 执行所有必要验证，再告诉我真实通过情况与残留风险。</div>
+
+        <h3>请求审查</h3>
+        <div class="prompt">请用 requesting-code-review 对本次改动做代码审查，先列问题，再给修改建议。</div>
+      </article>
+    </section>
+
+    <section>
+      <article class="card">
+        <h2>失败与修复</h2>
+        <h3>1. 技能未生效</h3>
+        <p>症状：输出直接进入实现，没有按预期流程。<br />
+        修复：在请求第一句明确写技能名和顺序，例如“先 brainstorming，再 implementation”。</p>
+
+        <h3>2. 输出不够深</h3>
+        <p>症状：建议太泛、细节不足。<br />
+        修复：补充验收标准、文件路径、约束条件（不改哪些文件、必须通过哪些验证）。</p>
+
+        <h3>3. 结果偏离风格</h3>
+        <p>症状：视觉或文案不符合预期。<br />
+        修复：增加可度量风格词（如“白底、留白、短句、标题不超过 14 字”）与反例（“不要复杂装饰”）。</p>
+
+        <div class="divider"></div>
+
+        <h3>最短恢复指令</h3>
+        <div class="prompt">重来这一步：请先用 brainstorming 给 2-3 个方案并推荐一个；我确认后再动代码。输出需包含文件路径、验收标准、风险点。</div>
+      </article>
+    </section>
+
+    <section>
+      <article class="card">
+        <h2>今天就能用的清单</h2>
+        <div class="checklist">
+          <div class="item"><b>写目标：</b>一句话说清最终产出。</div>
+          <div class="item"><b>写技能：</b>至少点名 1 个主技能。</div>
+          <div class="item"><b>写边界：</b>明确改动目录与不改范围。</div>
+          <div class="item"><b>写验收：</b>给可验证结果，不用抽象词。</div>
+        </div>
+        <p style="margin-top: 16px;"><b>原则：</b>越明确，越强大。Superpowers 不替你思考，但会放大你的表达质量。</p>
+      </article>
+    </section>
+  </main>
+
+  <footer>
+    Superpowers Guide · CloudTime · 2026
+  </footer>
+</body>
+</html>

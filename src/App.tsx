@@ -9,6 +9,9 @@ import { AppPage, AppSettings } from "./types";
 
 const DEFAULT_SETTINGS: AppSettings = {
   opacity: 1,
+  quickPanelOpacity: 0.88,
+  quickPanelHotkey: "Alt+Q",
+  quickCreateTodoHotkey: "Alt+N",
   defaultTaskDuration: 60,
   defaultProject: "Cloudo"
 };
@@ -27,8 +30,42 @@ export function App(): JSX.Element {
   }, []);
 
   useEffect(() => {
+    if (typeof settings.quickPanelOpacity === "number" && typeof settings.quickPanelHotkey === "string") return;
+    setSettings((prev) => ({ ...DEFAULT_SETTINGS, ...prev, quickPanelOpacity: 0.88, quickPanelHotkey: "Alt+Q", quickCreateTodoHotkey: "Alt+N" }));
+  }, [settings, setSettings]);
+
+  useEffect(() => {
     void window.cloudo.setWindowOpacity(settings.opacity);
   }, [settings.opacity]);
+
+  useEffect(() => {
+    void window.cloudo.setQuickPanelOpacity(settings.quickPanelOpacity);
+  }, [settings.quickPanelOpacity]);
+
+  useEffect(() => {
+    window.cloudo
+      .getDynamicHotkeys()
+      .then((hotkeys) => {
+        setSettings((prev) => ({
+          ...prev,
+          quickPanelHotkey: hotkeys.toggleQuickPanel,
+          quickCreateTodoHotkey: hotkeys.quickCreateTodo
+        }));
+      })
+      .catch(() => {
+        // Keep local defaults when electron hotkey sync fails.
+      });
+  }, [setSettings]);
+
+  useEffect(() => {
+    const unsubscribe = window.cloudo.onQuickCreateFocus(() => {
+      setActivePage("time_manager");
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("cloudo:focusQuickCreate"));
+      }, 30);
+    });
+    return unsubscribe;
+  }, [setActivePage]);
 
   const content = useMemo(() => {
     if (activePage === "time_manager") return <TimeManagerPage todos={mockTodos} timelineItems={mockTimeline} />;
@@ -38,9 +75,26 @@ export function App(): JSX.Element {
       <SettingsPage
         settings={settings}
         onOpacityChange={(value) => setSettings((prev) => ({ ...prev, opacity: value }))}
+        onQuickPanelOpacityChange={(value) => setSettings((prev) => ({ ...prev, quickPanelOpacity: value }))}
+        onHotkeysChange={async (quickPanelHotkey, quickCreateTodoHotkey) => {
+          const result = await window.cloudo.setDynamicHotkeys({
+            toggleQuickPanel: quickPanelHotkey,
+            quickCreateTodo: quickCreateTodoHotkey
+          });
+
+          if (result.ok) {
+            setSettings((prev) => ({
+              ...prev,
+              quickPanelHotkey,
+              quickCreateTodoHotkey
+            }));
+          }
+
+          return result;
+        }}
       />
     );
-  }, [activePage, settings]);
+  }, [activePage, settings, baseDir, setSettings]);
 
   return (
     <div className={sidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"}>
