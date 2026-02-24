@@ -20,7 +20,6 @@ export function App(): JSX.Element {
   const [activePage, setActivePage] = useLocalStorageState<AppPage>("cloudo.app.activePage", "time_manager");
   const [settings, setSettings] = useLocalStorageState<AppSettings>("cloudo.app.settings", DEFAULT_SETTINGS);
   const [baseDir, setBaseDir] = useState<string>("");
-  const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorageState<boolean>("cloudo.app.sidebarCollapsed", false);
 
   useEffect(() => {
     window.cloudo
@@ -96,22 +95,13 @@ export function App(): JSX.Element {
     );
   }, [activePage, settings, baseDir, setSettings]);
 
-  const shellClassName = [
-    "app-shell",
-    sidebarCollapsed ? "sidebar-collapsed" : "",
-    activePage === "time_manager" ? "time-manager-shell" : ""
-  ]
+  const shellClassName = ["app-shell", activePage === "time_manager" ? "time-manager-shell" : ""]
     .filter(Boolean)
     .join(" ");
 
   return (
     <div className={shellClassName}>
-      <Sidebar
-        activePage={activePage}
-        onNavigate={setActivePage}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
-      />
+      <Sidebar activePage={activePage} onNavigate={setActivePage} />
       <main className="content">{content}</main>
     </div>
   );

@@ -1,0 +1,189 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>超细侧边栏</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --line: #e2e8f0;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      font-family: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    .layout {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 48px;
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px 0 8px;
+      gap: 8px;
+    }
+
+    .icon-content {
+      position: relative;
+    }
+
+    .tooltip {
+      position: absolute;
+      left: 34px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 6px;
+      opacity: 0;
+      visibility: hidden;
+      font-size: 11px;
+      line-height: 1;
+      white-space: nowrap;
+      transition: all 0.25s ease;
+      pointer-events: none;
+    }
+
+    .icon-content:hover .tooltip {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .nav-link {
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      color: #4d4d4d;
+      background: #fff;
+      text-decoration: none;
+      transition: all 0.25s ease;
+      box-shadow: 0 0 0 1px #eef2f7;
+    }
+
+    .nav-link:hover {
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+    }
+
+    .nav-link svg {
+      position: relative;
+      z-index: 1;
+      width: 15px;
+      height: 15px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .nav-link .filled {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 100%;
+      height: 0;
+      background: #000;
+      transition: all 0.25s ease;
+    }
+
+    .nav-link:hover .filled,
+    .nav-link.active .filled {
+      height: 100%;
+    }
+
+    .nav-link.active {
+      color: #fff;
+    }
+
+    .nav-link[data-social="time-todo"] .filled,
+    .nav-link[data-social="time-todo"] ~ .tooltip {
+      background: #0274b3;
+    }
+
+    .nav-link[data-social="notes"] .filled,
+    .nav-link[data-social="notes"] ~ .tooltip {
+      background: #ff6b35;
+    }
+
+    .nav-link[data-social="settings"] .filled,
+    .nav-link[data-social="settings"] ~ .tooltip {
+      background: #24262a;
+    }
+
+    .bottom {
+      margin-top: auto;
+    }
+
+    .main {
+      flex: 1;
+      display: grid;
+      place-items: center;
+      color: #64748b;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" aria-label="侧边导航">
+      <div class="icon-content">
+        <a href="#" class="nav-link active" data-social="time-todo" aria-label="时间待办">
+          <div class="filled"></div>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="9" cy="9" r="5.5"></circle>
+            <path d="M9 6.5v3l2 1.5"></path>
+            <path d="M14.5 14.5l1.7 1.7 3.3-3.3"></path>
+            <path d="M16 4h4"></path>
+          </svg>
+        </a>
+        <div class="tooltip">时间待办</div>
+      </div>
+
+      <div class="icon-content">
+        <a href="#" class="nav-link" data-social="notes" aria-label="笔记">
+          <div class="filled"></div>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M7 3.5h8l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"></path>
+            <path d="M15 3.5V8h4M9 12h6M9 15.5h6"></path>
+          </svg>
+        </a>
+        <div class="tooltip">笔记</div>
+      </div>
+
+      <div class="bottom">
+        <div class="icon-content">
+          <a href="#" class="nav-link" data-social="settings" aria-label="设置">
+            <div class="filled"></div>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.5 12a7.5 7.5 0 0 0-.1-1l2-1.5-2-3.5-2.4.8a7.8 7.8 0 0 0-1.7-1l-.4-2.5H11l-.4 2.5a7.8 7.8 0 0 0-1.7 1l-2.4-.8-2 3.5 2 1.5a7.5 7.5 0 0 0 0 2l-2 1.5 2 3.5 2.4-.8a7.8 7.8 0 0 0 1.7 1L11 21h4l.4-2.5a7.8 7.8 0 0 0 1.7-1l2.4.8 2-3.5-2-1.5c.1-.3.1-.7.1-1z"></path>
+            </svg>
+          </a>
+          <div class="tooltip">设置</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">主内容区域</main>
+  </div>
+</body>
+</html>
