@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时间管理看板</title>
+    <!-- 引入图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-color: #eef7fe;
+            --sidebar-bg: #eef7fe;
+            --card-bg: #ffffff;
+            --primary-blue: #3b82f6;
+            --primary-blue-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); /* fallback */
+            --btn-blue: linear-gradient(90deg, #4481eb 0%, #04befe 100%);
+            --btn-blue-solid: #4086f4;
+            --accent-yellow: #facc15;
+            --accent-yellow-gradient: linear-gradient(90deg, #facc15 0%, #fb923c 100%);
+            --text-main: #1f2937;
+            --text-secondary: #6b7280;
+            --text-light: #9ca3af;
+            --border-radius-lg: 24px;
+            --border-radius-md: 16px;
+            --border-radius-sm: 8px;
+            --shadow-soft: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- Sidebar --- */
+        .sidebar {
+            width: 80px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px 0;
+            flex-shrink: 0;
+        }
+
+        .logo {
+            width: 48px;
+            height: 48px;
+            background: #4086f4;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 24px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 10px rgba(64, 134, 244, 0.3);
+        }
+
+        .nav-items {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            flex: 1;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            color: var(--text-light);
+            transition: 0.3s;
+        }
+
+        .nav-item.active {
+            color: var(--btn-blue-solid);
+        }
+
+        .nav-icon-bg {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+        }
+
+        .nav-item.active .nav-icon-bg {
+            background-color: #dbeafe;
+        }
+
+        .nav-label {
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .sidebar-bottom {
+            margin-top: auto;
+            color: var(--text-light);
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        /* --- Main Content --- */
+        .main-content {
+            flex: 1;
+            padding: 30px 40px 30px 10px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .header-left h1 {
+            font-size: 28px;
+            font-weight: 800;
+            color: #1e3a8a;
+            margin-bottom: 5px;
+        }
+
+        .header-left p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .time-widget {
+            background: white;
+            padding: 8px 12px 8px 20px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: var(--shadow-soft);
+        }
+
+        .time-text {
+            text-align: right;
+        }
+
+        .time-label {
+            display: block;
+            font-size: 10px;
+            color: var(--text-light);
+        }
+
+        .current-time {
+            font-weight: 700;
+            color: var(--text-main);
+            font-size: 16px;
+        }
+
+        .sun-icon {
+            width: 36px;
+            height: 36px;
+            background-color: var(--accent-yellow);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 18px;
+        }
+
+        /* Dashboard Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.1fr 1fr;
+            gap: 25px;
+            height: 100%;
+        }
+
+        /* Columns Common */
+        .col-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius-lg);
+            padding: 25px;
+            box-shadow: var(--shadow-soft);
+        }
+
+        /* --- Column 1: Add Task & Backlog --- */
+        
+        /* Add Task Widget */
+        .add-task-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 18px;
+            color: #1e3a8a;
+            margin-bottom: 20px;
+        }
+
+        .add-icon {
+            color: var(--btn-blue-solid);
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-field {
+            width: 100%;
+            background: #f8fafc;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            outline: none;
+            color: var(--text-main);
+        }
+
+        .input-field::placeholder {
+            color: #cbd5e1;
+        }
+
+        .dropdown-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .dropdown {
+            flex: 1;
+            background: #f8fafc;
+            padding: 12px 15px;
+            border-radius: 12px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .btn-create {
+            width: 100%;
+            background: var(--btn-blue-solid);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(64, 134, 244, 0.3);
+            transition: 0.2s;
+        }
+
+        .btn-create:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Backlog Section */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1e3a8a;
+        }
+
+        .section-count {
+            font-size: 12px;
+            color: var(--text-light);
+        }
+
+        .task-card {
+            background: var(--card-bg);
+            border-radius: var(--border-radius-lg);
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: var(--shadow-soft);
+            position: relative;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .tag-blue { background: #e0f2fe; color: #0284c7; }
+        .tag-yellow { background: #fef9c3; color: #ca8a04; }
+
+        .task-title {
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #111827;
+        }
+
+        .task-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .task-time {
+            font-size: 12px;
+            color: var(--text-light);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .avatars {
+            display: flex;
+        }
+        .avatar-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-left: 3px;
+        }
+
+        /* Task styling variations */
+        .task-card.active {
+            border-left: 4px solid var(--accent-yellow);
+        }
+
+        /* --- Column 2: Schedule --- */
+        .schedule-card {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .schedule-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .badge-today {
+            background: #e0f2fe;
+            color: #0284c7;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .timeline-container {
+            flex: 1;
+            position: relative;
+            padding-top: 10px;
+            overflow-y: auto;
+        }
+
+        .time-slot {
+            height: 80px;
+            border-top: 1px dashed #f1f5f9;
+            position: relative;
+        }
+
+        .time-label-slot {
+            position: absolute;
+            top: -10px;
+            left: 0;
+            font-size: 10px;
+            color: var(--text-light);
+        }
+
+        /* Event Blocks */
+        .event-block {
+            position: absolute;
+            left: 50px;
+            right: 10px;
+            border-radius: 16px;
+            padding: 12px 20px;
+            color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .event-blue {
+            top: 130px; /* Approx 10:00 */
+            height: 80px;
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            z-index: 2;
+        }
+
+        .event-yellow {
+            top: 450px; /* Approx 14:00 */
+            height: 80px;
+            background: linear-gradient(135deg, #facc15 0%, #fb923c 100%);
+        }
+
+        .event-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .event-time {
+            font-size: 10px;
+            opacity: 0.9;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* Current Time Marker */
+        .now-marker {
+            position: absolute;
+            top: 175px; /* Cutting through the blue event */
+            left: 0;
+            right: 0;
+            display: flex;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .now-badge {
+            background: var(--accent-yellow);
+            color: white;
+            font-size: 10px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .now-line {
+            flex: 1;
+            height: 2px;
+            background: var(--accent-yellow);
+        }
+
+        /* --- Column 3: Notes --- */
+        .notes-card {
+            height: 100%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .notes-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .toggle-switch {
+            background: #f1f5f9;
+            border-radius: 20px;
+            padding: 4px;
+            display: flex;
+        }
+
+        .toggle-btn {
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .toggle-btn.active {
+            background: white;
+            color: var(--text-main);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            font-weight: 600;
+        }
+
+        .note-content {
+            flex: 1;
+        }
+
+        .note-title {
+            color: #3b82f6;
+            font-weight: 600;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+
+        .note-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+        }
+
+        .checklist {
+            list-style: none;
+            margin-bottom: 30px;
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+            color: var(--text-main);
+            font-size: 14px;
+        }
+
+        .checkbox-circle {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .checklist-item.checked .checkbox-circle {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: white;
+            font-size: 10px;
+        }
+
+        .checklist-item.checked span {
+            color: var(--text-light);
+            /* text-decoration: line-through; Optional based on preference */
+        }
+
+        .highlight-box-title {
+            color: var(--accent-yellow);
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .highlight-box {
+            background: #f8fafc;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            border-radius: 0 12px 12px 0;
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            font-style: italic;
+        }
+
+        .notes-footer {
+            margin-top: auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 20px;
+        }
+
+        .last-saved {
+            font-size: 10px;
+            color: var(--text-light);
+        }
+
+        .fab-save {
+            width: 48px;
+            height: 48px;
+            background: #3b82f6;
+            border-radius: 50%; /* Adjusted to be slightly squared per image usually, but image shows circle/squircle */
+            border-radius: 16px; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 20px;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        
+        .fab-save:hover {
+            transform: scale(1.05);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="logo">
+                <i class="fa-solid fa-cloud"></i>
+            </div>
+            
+            <div class="nav-items">
+                <div class="nav-item active">
+                    <div class="nav-icon-bg"><i class="fa-regular fa-clock"></i></div>
+                    <span class="nav-label">时间管理</span>
+                </div>
+                <div class="nav-item">
+                    <div class="nav-icon-bg"><i class="fa-solid fa-chart-simple"></i></div>
+                    <span class="nav-label">统计</span>
+                </div>
+                <div class="nav-item">
+                    <div class="nav-icon-bg"><i class="fa-solid fa-gear"></i></div>
+                    <span class="nav-label">设置</span>
+                </div>
+            </div>
+
+            <div class="sidebar-bottom">
+                <i class="fa-solid fa-moon"></i>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            
+            <!-- Top Bar -->
+            <header>
+                <div class="header-left">
+                    <h1>时间管理看板</h1>
+                    <p>你好！准备好开启高效的一天了吗？</p>
+                </div>
+                <div class="time-widget">
+                    <div class="time-text">
+                        <span class="time-label">当前时间</span>
+                        <span class="current-time">10:45 上午</span>
+                    </div>
+                    <div class="sun-icon">
+                        <i class="fa-regular fa-sun"></i>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Grid -->
+            <div class="dashboard-grid">
+                
+                <!-- Column 1 -->
+                <section class="col-container">
+                    <!-- Quick Add Widget -->
+                    <div class="card">
+                        <div class="add-task-header">
+                            <i class="fa-solid fa-circle-plus add-icon"></i>
+                            <span>快速添加任务</span>
+                        </div>
+                        <div class="input-group">
+                            <input type="text" class="input-field" placeholder="输入任务标题...">
+                        </div>
+                        <div class="dropdown-row">
+                            <div class="dropdown">
+                                <span>项目名称</span>
+                                <i class="fa-solid fa-chevron-down"></i>
+                            </div>
+                            <div class="dropdown">
+                                <span>时长 (分钟)</span>
+                                <i class="fa-solid fa-chevron-down"></i>
+                            </div>
+                        </div>
+                        <button class="btn-create">创建任务</button>
+                    </div>
+
+                    <!-- Backlog -->
+                    <div>
+                        <div class="section-header">
+                            <h2 class="section-title">待办池</h2>
+                            <span class="section-count">4 个任务</span>
+                        </div>
+
+                        <!-- Task 1 -->
+                        <div class="task-card">
+                            <span class="tag tag-blue">核心研发</span>
+                            <div class="task-title">完成工作报告</div>
+                            <div class="task-footer">
+                                <div class="task-time">
+                                    <i class="fa-regular fa-clock"></i> 45 分钟
+                                </div>
+                                <div class="avatars">
+                                    <div class="avatar-dot" style="background:#4ade80"></div>
+                                    <div class="avatar-dot" style="background:#e5e7eb"></div>
+                                    <div class="avatar-dot" style="background:#e5e7eb"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Task 2 (Active Style) -->
+                        <div class="task-card active">
+                            <span class="tag tag-yellow">设计评审</span>
+                            <div class="task-title">设计系统更新评审</div>
+                            <div class="task-footer">
+                                <div class="task-time">
+                                    <i class="fa-regular fa-clock"></i> 30 分钟
+                                </div>
+                                <div class="avatars">
+                                    <div class="avatar-dot" style="background:#facc15"></div>
+                                    <div class="avatar-dot" style="background:#facc15"></div>
+                                    <div class="avatar-dot" style="background:#e5e7eb"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+                <!-- Column 2: Schedule -->
+                <section class="col-container">
+                    <div class="card schedule-card">
+                        <div class="schedule-header">
+                            <h2 class="section-title">日程计划</h2>
+                            <span class="badge-today">今天</span>
+                        </div>
+                        
+                        <div class="timeline-container">
+                            <!-- Time Slots Background -->
+                            <div class="time-slot"><span class="time-label-slot">08:00</span></div>
+                            <div class="time-slot"><span class="time-label-slot">09:00</span></div>
+                            <div class="time-slot"><span class="time-label-slot">10:00</span></div>
+                            <div class="time-slot"><span class="time-label-slot">11:00</span></div>
+                            <div class="time-slot"><span class="time-label-slot">12:00</span></div>
+                            <div class="time-slot"><span class="time-label-slot">13:00</span></div>
+                            <div class="time-slot"><span class="time-label-slot">14:00</span></div>
+                            <div class="time-slot"><span class="time-label-slot">15:00</span></div>
+
+                            <!-- Events -->
+                            <div class="event-block event-blue">
+                                <div class="event-title">产品原型设计</div>
+                                <div class="event-time">
+                                    <i class="fa-regular fa-clock"></i> 10:00 - 11:30
+                                </div>
+                            </div>
+
+                            <div class="now-marker">
+                                <div class="now-badge">
+                                    <i class="fa-regular fa-sun"></i> 现在
+                                </div>
+                                <div class="now-line"></div>
+                            </div>
+
+                            <div class="event-block event-yellow">
+                                <div class="event-title">团队周会</div>
+                                <div class="event-time">
+                                    <i class="fa-regular fa-clock"></i> 14:00 - 14:30
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Column 3: Notes -->
+                <section class="col-container">
+                    <div class="card notes-card">
+                        <div class="notes-header">
+                            <h2 class="section-title">轻笔记</h2>
+                            <div class="toggle-switch">
+                                <div class="toggle-btn active">编辑</div>
+                                <div class="toggle-btn">预览</div>
+                            </div>
+                        </div>
+
+                        <div class="note-content">
+                            <h3 class="note-title"># 每日灵感</h3>
+                            <p class="note-subtitle">今日重点工作目标：</p>
+
+                            <ul class="checklist">
+                                <li class="checklist-item checked">
+                                    <div class="checkbox-circle"><i class="fa-solid fa-check"></i></div>
+                                    <span>完成高保真交互原型设计</span>
+                                </li>
+                                <li class="checklist-item">
+                                    <div class="checkbox-circle"></div>
+                                    <span>与前端开发团队同步技术可行性</span>
+                                </li>
+                                <li class="checklist-item">
+                                    <div class="checkbox-circle"></div>
+                                    <span>更新项目文档与设计规范</span>
+                                </li>
+                            </ul>
+
+                            <div class="highlight-box-title">随手记</div>
+                            <div class="highlight-box">
+                                保持界面亲和力与可访问性。尝试使用更多的圆角设计和柔和阴影，增加视觉上的舒适感！
+                            </div>
+                        </div>
+
+                        <div class="notes-footer">
+                            <span class="last-saved">上次保存于 2分钟前</span>
+                            <div class="fab-save">
+                                <i class="fa-solid fa-floppy-disk"></i>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+</body>
+</html>

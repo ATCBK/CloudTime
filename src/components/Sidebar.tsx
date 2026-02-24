@@ -1,4 +1,4 @@
-﻿import { AppPage } from "../types";
+import { AppPage } from "../types";
 import brandLogo from "../../etc/云朵(1).png";
 
 interface SidebarProps {
@@ -45,3 +45,4 @@ export function Sidebar({ activePage, onNavigate, collapsed, onToggleCollapse }:
     </aside>
   );
 }
+

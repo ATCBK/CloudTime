@@ -2147,98 +2147,15 @@ button, input, textarea, select { font: inherit; }
 
 
 
+html.quick-panel-window-view,
 body.quick-panel-window-view {
   background: transparent !important;
+  cursor: default;
 }
 
 body.quick-panel-window-view #root {
   background: transparent !important;
-}
-
-.desktop-quick-panel-shell {
-  width: 100%;
-  height: 100%;
-  padding: 18px;
-  display: grid;
-  align-items: start;
-  background: transparent;
-}
-
-.desktop-quick-panel {
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 18px;
-  background: linear-gradient(160deg, rgba(59, 85, 138, 0.52), rgba(34, 56, 102, 0.38));
-  backdrop-filter: blur(10px);
-  box-shadow: 0 18px 36px rgba(12, 20, 38, 0.28);
-  padding: 14px 16px;
-  color: #ffffff;
-}
-
-.desktop-quick-panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.desktop-quick-panel-head h2 {
-  margin: 0;
-  font-size: 24px;
-  letter-spacing: 0.2px;
-}
-
-.desktop-quick-panel-list {
-  max-height: 420px;
-  overflow: auto;
-  padding-right: 2px;
-}
-
-.desktop-quick-panel-empty {
-  margin: 6px 0 10px;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 14px;
-}
-
-.desktop-quick-item {
-  display: grid;
-  grid-template-columns: 20px 1fr;
-  align-items: start;
-  gap: 10px;
-  padding: 11px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.desktop-quick-item:first-of-type {
-  border-top: 0;
-}
-
-.desktop-quick-item input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  margin-top: 2px;
-  accent-color: #ffffff;
-}
-
-.desktop-quick-item-main {
-  display: grid;
-  gap: 4px;
-}
-
-.desktop-quick-item-title {
-  font-size: 30px;
-  line-height: 1.2;
-  font-weight: 600;
-}
-
-.desktop-quick-item-meta {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.86);
-}
-
-.desktop-quick-item.done .desktop-quick-item-title {
-  text-decoration: line-through;
-  opacity: 0.7;
+  cursor: default;
 }
 
 .settings-hotkey-actions {
@@ -2294,83 +2211,642 @@ body.quick-panel-window-view #root {
   align-items: center;
 }
 
-.desktop-quick-panel {
-  background: linear-gradient(165deg, rgba(245, 248, 255, 0.72), rgba(232, 238, 252, 0.56));
-  border: 1px solid rgba(255, 255, 255, 0.62);
-  color: #1f2f4f;
-  box-shadow: 0 20px 48px rgba(40, 58, 95, 0.18);
+/* Shared explosive growth quick panel card */
+.explosive-card,
+.quick-panel {
+  --eg-white: hsl(0, 0%, 100%);
+  --eg-black: hsl(240, 15%, 9%);
+  --eg-paragraph: hsl(0, 0%, 83%);
+  --eg-line: hsl(240, 9%, 17%);
+  --eg-primary: hsl(214, 90%, 52%);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 19rem;
+  padding: 1rem;
+  max-height: none;
+  overflow: hidden;
+  border-radius: 1rem;
+  background-color: hsla(240, 15%, 9%, 1);
+  background-image:
+    radial-gradient(at 88% 40%, hsla(240, 15%, 9%, 1) 0px, transparent 85%),
+    radial-gradient(at 49% 30%, hsla(240, 15%, 9%, 1) 0px, transparent 85%),
+    radial-gradient(at 14% 26%, hsla(240, 15%, 9%, 1) 0px, transparent 85%),
+    radial-gradient(at 0% 64%, hsla(216, 94%, 45%, 1) 0px, transparent 85%),
+    radial-gradient(at 41% 94%, hsla(206, 100%, 70%, 1) 0px, transparent 85%),
+    radial-gradient(at 100% 99%, hsla(198, 100%, 52%, 1) 0px, transparent 85%);
+  box-shadow: 0 -16px 24px 0 rgba(255, 255, 255, 0.25) inset;
+  -webkit-app-region: drag;
+  cursor: default;
 }
 
-.desktop-quick-panel-head h2 {
-  font-size: 22px;
-  color: #243d6a;
+.explosive-card__border {
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  z-index: -10;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% + 2px);
+  height: calc(100% + 2px);
+  background-image: linear-gradient(0deg, hsl(0, 0%, 100%) -50%, hsl(0, 0%, 40%) 100%);
+  border-radius: 1rem;
 }
 
-.quick-create-trigger {
-  border: 1px solid #c9d6f0;
-  background: rgba(255, 255, 255, 0.72);
-  border-radius: 999px;
-  width: 30px;
-  height: 30px;
+.explosive-card__border::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  z-index: 200;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(0deg);
+  transform-origin: left;
+  width: 200%;
+  height: 10rem;
+  background-image: linear-gradient(0deg, hsla(0, 0%, 100%, 0) 0%, hsl(214, 96%, 58%) 40%, hsl(214, 96%, 58%) 60%, hsla(0, 0%, 40%, 0) 100%);
+  animation: explosive-card-rotate 8s linear infinite;
+}
+
+.explosive-card__brand {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--eg-white);
+}
+
+.explosive-card__line {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 0.1rem;
+  border: 0;
+  background: var(--eg-line);
+}
+
+.explosive-card__list,
+.quick-panel .quick-item {
+  position: relative;
+  z-index: 1;
+  -webkit-app-region: no-drag;
+}
+
+.explosive-card__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: visible;
+}
+
+.explosive-card__empty {
+  font-size: 0.75rem;
+  color: var(--eg-paragraph);
+  padding: 0;
+}
+
+.explosive-card__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.explosive-card__check {
+  border: 0;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--eg-primary);
+  color: var(--eg-black);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #2b4f95;
+  margin-top: 0;
+  cursor: pointer;
+  flex: 0 0 auto;
+  -webkit-app-region: no-drag;
 }
 
-.quick-create-bar {
-  display: grid;
-  gap: 6px;
+.explosive-card__check-svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.explosive-card__main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  -webkit-app-region: no-drag;
+}
+
+.explosive-card__text {
+  font-size: 0.75rem;
+  color: var(--eg-white);
+  transition: color 0.25s ease, opacity 0.25s ease, text-decoration-color 0.25s ease;
+}
+
+.explosive-card__meta {
+  font-size: 0.75rem;
+  color: var(--eg-paragraph);
+}
+
+.explosive-card__detail {
+  font-size: 0.75rem;
+  color: var(--eg-paragraph);
+  line-height: 1.3;
+}
+
+.explosive-card__item.done .explosive-card__check {
+  background: hsl(160, 84%, 42%);
+}
+
+.explosive-card__item.done .explosive-card__text {
+  color: hsl(0, 0%, 76%);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: hsla(0, 0%, 100%, 0.8);
+  opacity: 0.88;
+}
+
+.explosive-card__button {
+  position: relative;
+  z-index: 1;
+  cursor: pointer;
+  border: 0;
+  border-radius: 9999px;
+  width: 100%;
+  padding: 0.5rem;
+  background-image: linear-gradient(0deg, rgba(20, 66, 160, 1) 0%, rgba(41, 122, 255, 1) 100%);
+  color: var(--eg-white);
+  font-size: 0.75rem;
+  box-shadow: inset 0 -2px 25px -4px var(--eg-white);
+  -webkit-app-region: no-drag;
+}
+
+.explosive-card__button:disabled {
+  opacity: 0.68;
+  cursor: not-allowed;
+}
+
+/* In-app quick-panel compatibility (if rendered) */
+.quick-panel h3 {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  text-align: center;
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.quick-panel .quick-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+}
+
+.quick-panel .quick-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: hsl(214, 90%, 52%);
+}
+
+.quick-panel .quick-item.done span {
+  text-decoration: line-through;
+  opacity: 0.88;
+}
+
+
+
+/* ===== Time Manager Visual Refactor (Scoped) ===== */
+.time-manager-shell {
+  --brand-blue: #10246C;
+  --brand-yellow: #FFD700;
+  --bg-sky: #E0F2FF;
+  --bg-panel: #FFFFFF;
+  --status-success: #34D399;
+  --status-error: #F87171;
+  --brand-blue-rgb: 16, 36, 108;
+  --brand-yellow-rgb: 255, 215, 0;
+  --tm-border: rgba(var(--brand-blue-rgb), 0.16);
+  --tm-panel-soft: rgba(var(--brand-blue-rgb), 0.04);
+  --tm-input-bg: rgba(var(--brand-blue-rgb), 0.025);
+  --tm-font-ui: "Quicksand", "Noto Sans SC", sans-serif;
+  --tm-font-body: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --tm-radius-panel: 24px;
+  --tm-radius-card: 16px;
+  --tm-radius-input: 12px;
+  --tm-text-primary: var(--brand-blue);
+  --tm-text-muted: rgba(var(--brand-blue-rgb), 0.62);
+  background: var(--bg-sky);
+  font-family: var(--tm-font-body);
+}
+
+.time-manager-shell .sidebar {
+  background: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-sky) 100%);
+  border-right: 1px solid var(--tm-border);
+  border-radius: 0 18px 18px 0;
+}
+
+.time-manager-shell .nav-item {
+  border-radius: 14px;
+  color: var(--tm-text-muted);
+}
+
+.time-manager-shell .nav-item.active {
+  background: var(--brand-blue);
+  color: var(--bg-panel);
+  box-shadow: 0 10px 22px rgba(var(--brand-blue-rgb), 0.24);
+}
+
+.time-manager-page {
+  position: relative;
+  background: var(--bg-sky);
+  border-radius: var(--tm-radius-panel);
+  border: 1px solid var(--tm-border);
+  padding: 18px 18px 14px;
+}
+
+.time-manager-topbar {
   margin-bottom: 10px;
 }
 
-.quick-create-bar input,
-.quick-create-bar textarea {
-  border: 1px solid #d4ddf0;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.76);
-  color: #24385f;
-  padding: 8px;
+.tm-hero h2 {
+  margin: 0;
+  font-family: var(--tm-font-ui);
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--tm-text-primary);
 }
 
-.quick-create-bar textarea {
-  min-height: 56px;
-  resize: vertical;
+.tm-hero p {
+  margin: 6px 0 0;
+  color: var(--tm-text-muted);
+  font-family: var(--tm-font-body);
+  font-size: 14px;
+  font-weight: 400;
 }
 
-.quick-create-submit {
-  border: 1px solid #a8bce8;
-  background: linear-gradient(180deg, #ffffff 0%, #edf3ff 100%);
-  border-radius: 8px;
-  color: #244a8d;
-  padding: 7px 10px;
+.tm-top-right {
+  display: flex;
+  align-items: center;
 }
 
-.desktop-quick-item {
-  border-top-color: rgba(138, 160, 205, 0.34);
+.tm-clock-pill {
+  border: 1px solid var(--tm-border);
+  border-radius: 20px;
+  background: var(--bg-panel);
+  min-width: 190px;
+  padding: 10px 14px;
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  box-shadow: 0 8px 18px rgba(var(--brand-blue-rgb), 0.12);
 }
 
-.desktop-quick-item input[type="checkbox"] {
-  accent-color: #2f5cb3;
-}
-
-.desktop-quick-item-title {
-  font-size: 18px;
-  color: #233a63;
-}
-
-.desktop-quick-item-meta {
-  color: #5a6f95;
-}
-
-.desktop-quick-item-detail {
+.tm-clock-pill span {
+  color: var(--tm-text-muted);
   font-size: 12px;
-  color: #6e7fa1;
-  line-height: 1.4;
 }
 
-.desktop-quick-panel-empty {
-  color: #6f7e9f;
+.tm-clock-pill strong {
+  color: var(--brand-blue);
+  font-size: 20px;
 }
 
+.tm-toolbar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
 
+.tm-view-group {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.tm-tool-group {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.tm-view-switcher .chip {
+  border-radius: 999px;
+  border-color: var(--tm-border);
+  background: var(--bg-panel);
+  color: var(--tm-text-primary);
+  font-weight: 600;
+}
+
+.tm-view-switcher .chip.active {
+  background: var(--brand-blue);
+  border-color: var(--brand-blue);
+  color: var(--bg-panel);
+}
+
+.time-manager-page .three-pane {
+  height: calc(100% - 150px);
+}
+
+.time-manager-page .panel {
+  border-radius: var(--tm-radius-panel);
+  border-color: var(--tm-border);
+  background: var(--bg-panel);
+  box-shadow: 0 18px 34px rgba(var(--brand-blue-rgb), 0.08);
+  padding: 16px;
+}
+
+.time-manager-page .panel-title-row h3 {
+  margin: 0;
+  color: var(--tm-text-primary);
+  font-family: var(--tm-font-ui);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.tm-left-panel .panel-title-row h3 {
+  font-size: 18px;
+}
+
+.tm-subtitle-row {
+  margin: 12px 0 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tm-subtitle-row h3 {
+  margin: 0;
+  color: var(--tm-text-primary);
+  font-family: var(--tm-font-ui);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.tm-subtitle-row span {
+  color: var(--tm-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.time-manager-page .todo-create-form {
+  border-radius: var(--tm-radius-card);
+  border-color: var(--tm-border);
+  background: var(--bg-panel);
+}
+
+.time-manager-page .todo-create-form input,
+.time-manager-page .todo-create-form textarea {
+  border-radius: var(--tm-radius-input);
+  border-color: var(--tm-border);
+  background: var(--tm-input-bg);
+  font-size: 14px;
+  font-family: var(--tm-font-body);
+}
+
+.time-manager-page .accent-btn {
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: var(--brand-blue);
+  box-shadow: 0 12px 26px rgba(var(--brand-blue-rgb), 0.26);
+}
+
+.time-manager-page .accent-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.tm-todo-list {
+  gap: 14px;
+}
+
+.tm-empty-state {
+  border: 1px dashed var(--tm-border);
+  border-radius: var(--tm-radius-input);
+  background: var(--tm-input-bg);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.tm-empty-state p {
+  margin: 0;
+  color: var(--tm-text-muted);
+  font-size: 13px;
+}
+
+.time-manager-page .todo-card {
+  border-radius: var(--tm-radius-card);
+  border-color: var(--tm-border);
+  background: var(--bg-panel);
+  box-shadow: none;
+}
+
+.time-manager-page .todo-card:hover {
+  box-shadow: none;
+  transform: none;
+}
+
+.time-manager-page .timeline {
+  border-radius: var(--tm-radius-card);
+  border-color: var(--tm-border);
+  background: var(--bg-panel);
+}
+
+.time-manager-page .timeline-hour {
+  color: var(--tm-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.time-manager-page .timeline-card {
+  border-radius: var(--tm-radius-card);
+  border-left-width: 4px;
+  box-shadow: 0 14px 22px rgba(var(--brand-blue-rgb), 0.14);
+}
+
+.time-manager-page .timeline-card .timeline-title {
+  color: var(--tm-text-primary);
+  font-family: var(--tm-font-body);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.tm-note-panel {
+  background: var(--bg-panel);
+}
+
+.tm-note-title {
+  color: var(--tm-text-primary) !important;
+  font-family: var(--tm-font-ui);
+  font-size: 18px !important;
+  font-weight: 700;
+}
+
+.tm-note-panel .note-toolbar {
+  border-bottom: 1px solid var(--tm-border);
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+
+.tm-note-panel .md-note-input {
+  border-radius: var(--tm-radius-input);
+  border-color: var(--tm-border);
+  background: var(--bg-panel);
+  font-family: var(--tm-font-body);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.time-manager-page .todo-title {
+  color: var(--tm-text-primary);
+  font-family: var(--tm-font-body);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.time-manager-page .todo-meta,
+.time-manager-page .soft-text,
+.time-manager-page .timeline-meta {
+  color: var(--tm-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.time-manager-page .todo-detail,
+.time-manager-page .light-note-editor {
+  font-family: var(--tm-font-body);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.time-manager-page .timeline-title {
+  color: var(--tm-text-primary);
+  font-family: var(--tm-font-body);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.time-manager-page .light-note-editor blockquote,
+.time-manager-page .ln-task-card {
+  background: rgba(var(--brand-blue-rgb), 0.05);
+  border-radius: var(--tm-radius-input);
+}
+
+.time-manager-page .now-line {
+  border-top-color: var(--brand-yellow);
+}
+
+.time-manager-page .timeline-remove-btn,
+.time-manager-page .danger {
+  color: var(--status-error);
+}
+
+.time-manager-page .timeline-remove-btn:hover {
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.time-manager-page .todo-actions button:first-child {
+  color: var(--status-success);
+}
+
+.time-manager-page .timeline-detail-btn {
+  right: 36px;
+}
+
+.time-manager-page .timeline-drag-handle {
+  right: 66px;
+}
+
+.tm-undo-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--tm-border);
+  border-radius: 999px;
+  background: var(--bg-panel);
+  box-shadow: 0 10px 24px rgba(var(--brand-blue-rgb), 0.18);
+  padding: 8px 12px;
+  z-index: 50;
+}
+
+.tm-undo-bar span {
+  color: var(--tm-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tm-delete-popup-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  background: rgba(10, 18, 35, 0.24);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+}
+
+.tm-delete-popup-wrap {
+  width: 100%;
+  max-width: 520px;
+  padding: 16px;
+}
+
+.tm-delete-popup-card {
+  border: 1px solid var(--tm-border);
+  border-radius: var(--tm-radius-card);
+  background: var(--bg-panel);
+  box-shadow: 0 16px 34px rgba(var(--brand-blue-rgb), 0.16);
+  padding: 16px;
+}
+
+.tm-delete-popup-copy h3 {
+  margin: 0 0 10px;
+  font-size: 22px;
+  color: var(--tm-text-primary);
+}
+
+.tm-delete-popup-copy p {
+  margin: 0 0 8px;
+  color: var(--tm-text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.tm-delete-popup-copy strong {
+  margin: 0 4px;
+  color: var(--tm-text-primary);
+}
+
+.tm-delete-popup-meta {
+  font-size: 12px !important;
+}
+
+.tm-delete-popup-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

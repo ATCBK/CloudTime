@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cloudo Todo Window</title>
+  <link rel="stylesheet" href="./explosive-growth-card.css" />
+</head>
+<body>
+  <div class="page">
+    <div class="card">
+      <div class="card__border"></div>
+      <div class="brand">cloudo</div>
+      <hr class="line" />
+      <ul class="card__list">
+        <li class="card__list_item">
+          <span class="check">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="check_svg">
+              <path fill-rule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd"></path>
+            </svg>
+          </span>
+          <span class="list_text">整理今天任务</span>
+        </li>
+        <li class="card__list_item">
+          <span class="check">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="check_svg">
+              <path fill-rule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd"></path>
+            </svg>
+          </span>
+          <span class="list_text">完成番茄钟一轮</span>
+        </li>
+        <li class="card__list_item">
+          <span class="check">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="check_svg">
+              <path fill-rule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd"></path>
+            </svg>
+          </span>
+          <span class="list_text">更新项目进度</span>
+        </li>
+        <li class="card__list_item">
+          <span class="check">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="check_svg">
+              <path fill-rule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd"></path>
+            </svg>
+          </span>
+          <span class="list_text">回复重要消息</span>
+        </li>
+        <li class="card__list_item">
+          <span class="check">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="check_svg">
+              <path fill-rule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd"></path>
+            </svg>
+          </span>
+          <span class="list_text">收尾并复盘</span>
+        </li>
+      </ul>
+      <button id="completeAllBtn" class="button">一键全部完成</button>
+    </div>
+  </div>
+  <script>
+    const completeAllBtn = document.getElementById("completeAllBtn");
+    const todoItems = document.querySelectorAll(".card__list_item");
+    let allDone = false;
+
+    completeAllBtn.addEventListener("click", () => {
+      allDone = !allDone;
+      todoItems.forEach((item) => item.classList.toggle("done", allDone));
+      completeAllBtn.textContent = allDone ? "已全部完成" : "一键全部完成";
+    });
+  </script>
+</body>
+</html>

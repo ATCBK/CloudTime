@@ -8,6 +8,8 @@ import { boundRange, computeAutoScrollDelta, pointerToSnappedRange, snapToStep }
 import { buildQuickPanelItems, removeTodoAfterSchedule } from "./quickPanelState";
 import { buildHourSlots24, computeMinuteOfDay, computeMsUntilNextMidnight, computeMsUntilTodayRecycle, computeNowLineTop, isSameDateKey, toggleWeekExpandedDate } from "./timeManagerClock";
 import { computeLaneWidth, computeTimelineUsableWidth } from "./timelineLayout";
+import { formatClockPill, getGreetingLabel } from "./timeManagerTheme";
+import { canCreateTodo, removeScheduleWithSnapshot, undoRemovedSchedule } from "./timeManagerSafety";
 
 interface TimeManagerPageProps {
   todos: TodoItem[];
@@ -48,6 +50,7 @@ const SNAP_MINUTES = 15;
 const AUTO_SCROLL_EDGE = 56;
 const AUTO_SCROLL_SPEED = 20;
 const TIMELINE_LABEL_WIDTH = 58;
+
 
 function toMinutes(hour: number, minute: number): number {
   return (hour - START_HOUR) * 60 + minute;
@@ -197,6 +200,9 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
   const [openedTodoDetailId, setOpenedTodoDetailId] = useState<string | null>(null);
   const [openedScheduleDetailId, setOpenedScheduleDetailId] = useState<string | null>(null);
   const [expandedWeekDateKey, setExpandedWeekDateKey] = useState<string | null>(null);
+  const [removedScheduleSnapshot, setRemovedScheduleSnapshot] = useState<ScheduledItem | null>(null);
+  const [showUndoBar, setShowUndoBar] = useState<boolean>(false);
+  const [pendingDeleteScheduleId, setPendingDeleteScheduleId] = useState<string | null>(null);
 
   const paneRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -204,6 +210,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
   const moveTaskRef = useRef<{ itemId: string; offsetMinutes: number; durationMinutes: number } | null>(null);
   const lightNoteEditorRef = useRef<HTMLDivElement>(null);
   const quickCreateTitleRef = useRef<HTMLInputElement>(null);
+  const undoTimerRef = useRef<number | null>(null);
 
   const selectedDate = useMemo(() => parseDateKey(selectedDateKey), [selectedDateKey]);
   const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
@@ -216,6 +223,10 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
   );
   const positionedItems = useMemo(() => layoutWithLanes(selectedDateItems), [selectedDateItems]);
   const quickPanelItems = useMemo(() => buildQuickPanelItems(scheduledItems, todosState, currentDateKey), [scheduledItems, todosState, currentDateKey]);
+  const pendingDeleteSchedule = useMemo(
+    () => (pendingDeleteScheduleId ? scheduledItems.find((item) => item.id === pendingDeleteScheduleId) ?? null : null),
+    [pendingDeleteScheduleId, scheduledItems]
+  );
 
   useEffect(() => {
     if (lightNoteHtml.trim()) return;
@@ -306,6 +317,21 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
       window.removeEventListener("cloudo:focusQuickCreate", onCustomFocus);
     };
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (undoTimerRef.current !== null) window.clearTimeout(undoTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!pendingDeleteScheduleId) return;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") setPendingDeleteScheduleId(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [pendingDeleteScheduleId]);
 
   const scrollTimelineToMinute = useCallback((minuteOfDay: number, behavior: ScrollBehavior = "smooth"): void => {
     if (!timelineRef.current) return;
@@ -523,7 +549,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
 
   const addTodo = (): void => {
     const title = newTodoTitle.trim();
-    if (!title) return;
+    if (!canCreateTodo(title)) return;
     const details = newTodoDetail.trim();
     setTodosState((prev) => [
       {
@@ -757,27 +783,72 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
   };
 
   const removeSchedule = (scheduleId: string): void => {
-    setScheduledItems((prev) => prev.filter((item) => item.id !== scheduleId));
+    setScheduledItems((prev) => {
+      const { next, removed } = removeScheduleWithSnapshot(prev, scheduleId);
+      if (removed) {
+        setRemovedScheduleSnapshot(removed);
+        setShowUndoBar(true);
+        if (undoTimerRef.current !== null) window.clearTimeout(undoTimerRef.current);
+        undoTimerRef.current = window.setTimeout(() => {
+          setShowUndoBar(false);
+          setRemovedScheduleSnapshot(null);
+          undoTimerRef.current = null;
+        }, 5000);
+      }
+      return next;
+    });
+  };
+
+  const undoRemoveSchedule = (): void => {
+    setScheduledItems((prev) => undoRemovedSchedule(prev, removedScheduleSnapshot));
+    setShowUndoBar(false);
+    setRemovedScheduleSnapshot(null);
+    if (undoTimerRef.current !== null) {
+      window.clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+    }
+  };
+
+  const confirmRemoveSchedule = (): void => {
+    if (!pendingDeleteScheduleId) return;
+    removeSchedule(pendingDeleteScheduleId);
+    setPendingDeleteScheduleId(null);
   };
 
   const timelineUsableWidth = computeTimelineUsableWidth(timelineWidth, TIMELINE_PADDING, TIMELINE_LABEL_WIDTH, MIN_CARD_WIDTH);
+  const headerClockLabel = useMemo(() => formatClockPill(new Date()), [nowMinute]);
+  const greetingLabel = useMemo(() => getGreetingLabel(new Date().getHours()), [nowMinute]);
 
   return (
-    <section className="page">
-      <header className="topbar">
-        <h2>时间管理</h2>
-        <div className="view-switcher">
+    <section className="page time-manager-page">
+      <header className="topbar time-manager-topbar">
+        <div className="tm-hero">
+          <h2>时间管理看板</h2>
+          <p>{greetingLabel}</p>
+        </div>
+        <div className="tm-top-right">
+          <div className="tm-clock-pill">
+            <span>当前时间</span>
+            <strong>{headerClockLabel}</strong>
+          </div>
+        </div>
+      </header>
+
+      <div className="tm-toolbar-row">
+        <div className="view-switcher tm-view-switcher tm-view-group">
           <button type="button" className={calendarView === "day" ? "chip active" : "chip"} onClick={() => setCalendarView("day")}>日视图</button>
           <button type="button" className={calendarView === "week" ? "chip active" : "chip"} onClick={() => setCalendarView("week")}>周视图</button>
           <button type="button" className={calendarView === "month" ? "chip active" : "chip"} onClick={() => setCalendarView("month")}>月视图</button>
+        </div>
+        <div className="view-switcher tm-view-switcher tm-tool-group">
           <button type="button" className="chip" onClick={() => void window.cloudo.toggleQuickPanelWindow()} title="快捷浮窗 Alt+Q">
             快捷浮窗
           </button>
-          <button type="button" className="chip" onClick={() => quickCreateTitleRef.current?.focus()} title="快捷创建 Alt+N">
-            快速创建
+          <button type="button" className="chip" onClick={() => quickCreateTitleRef.current?.focus()} title="新建待办 Alt+N">
+            新建待办
           </button>
         </div>
-      </header>
+      </div>
 
       <div
         ref={paneRef}
@@ -785,31 +856,42 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
         style={{ gridTemplateColumns: `${paneWidths.left}% 8px ${paneWidths.middle}% 8px ${paneWidths.right}%` }}
       >
         <section
-          className={draggingScheduleId ? "panel left todo-drop-active" : "panel left"}
+          className={draggingScheduleId ? "panel left tm-left-panel todo-drop-active" : "panel left tm-left-panel"}
           onDragOver={(event) => event.preventDefault()}
           onDrop={dropScheduleToTodoPool}
         >
           <div className="panel-title-row">
-            <h3>待办</h3>
+            <h3>快速添加任务</h3>
           </div>
 
           <div className="todo-create-form">
-            <input ref={quickCreateTitleRef} value={newTodoTitle} onChange={(e) => setNewTodoTitle(e.target.value)} placeholder="输入待办标题" />
-            <input value={newTodoProject} onChange={(e) => setNewTodoProject(e.target.value)} placeholder="项目名" />
+            <input ref={quickCreateTitleRef} value={newTodoTitle} onChange={(e) => setNewTodoTitle(e.target.value)} placeholder="例如：完成开发日报" />
+            <input value={newTodoProject} onChange={(e) => setNewTodoProject(e.target.value)} placeholder="项目（如：默认项目）" />
             <input
               type="number"
               min={15}
               step={15}
               value={newTodoDuration}
               onChange={(e) => setNewTodoDuration(Number(e.target.value) || 60)}
-              placeholder="时长(分钟)"
+              placeholder="时长（分钟，如45）"
             />
-            <textarea value={newTodoDetail} onChange={(e) => setNewTodoDetail(e.target.value)} placeholder="输入待办详情（可选）" />
-            <button className="accent-btn" type="button" onClick={addTodo}>新建待办</button>
+            <textarea value={newTodoDetail} onChange={(e) => setNewTodoDetail(e.target.value)} placeholder="详情（可选）" />
+            <button className="accent-btn" type="button" onClick={addTodo} disabled={!canCreateTodo(newTodoTitle)}>新建待办</button>
           </div>
 
-          <ul className="todo-list">
-            {todosState.map((todo) => (
+          <div className="tm-subtitle-row">
+            <h3>待办池</h3>
+            <span>{todosState.length} 个任务</span>
+          </div>
+
+          {todosState.length === 0 ? (
+            <div className="tm-empty-state">
+              <p>暂无待办，先创建一条今天要完成的任务。</p>
+              <button type="button" className="tiny-btn" onClick={() => quickCreateTitleRef.current?.focus()}>去创建</button>
+            </div>
+          ) : (
+            <ul className="todo-list tm-todo-list">
+              {todosState.map((todo) => (
               <li
                 key={todo.id}
                 className={draggingTodoId === todo.id ? "todo-card dragging" : todo.completed ? "todo-card done" : "todo-card"}
@@ -839,15 +921,16 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
                   <div className="todo-detail">{todo.details?.trim() ? todo.details : "暂无详情"}</div>
                 ) : null}
               </li>
-            ))}
-          </ul>
+              ))}
+            </ul>
+          )}
         </section>
 
         <div className="pane-resizer" onMouseDown={startResize(0)} role="separator" aria-label="调整左栏和中栏宽度" />
 
-        <section className="panel middle">
+        <section className="panel middle tm-middle-panel">
           <div className="panel-title-row">
-            <h3>{calendarView === "day" ? "日程时间轴" : calendarView === "week" ? "周视图" : "月视图"}</h3>
+            <h3>{calendarView === "day" ? "日程计划" : calendarView === "week" ? "周视图" : "月视图"}</h3>
             <span className="soft-text">当前日期: {selectedDateKey}</span>
           </div>
 
@@ -890,7 +973,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
                       className="timeline-remove-btn"
                       title="移除"
                       onMouseDown={(e) => e.stopPropagation()}
-                      onClick={() => removeSchedule(item.id)}
+                      onClick={() => setPendingDeleteScheduleId(item.id)}
                     >
                       <X size={13} />
                     </button>
@@ -1023,9 +1106,9 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
 
         <div className="pane-resizer" onMouseDown={startResize(1)} role="separator" aria-label="调整中栏和右栏宽度" />
 
-        <section className="panel right light-note-panel">
+        <section className="panel right light-note-panel tm-note-panel">
           <div className="note-toolbar">
-            <span className="soft-text">轻笔记（直接记录）</span>
+            <span className="soft-text tm-note-title">轻笔记</span>
             <div className="light-note-tools">
               <button type="button" className="tiny-btn icon-only" title="加粗" onClick={() => runLightNoteCommand("bold")}>
                 <Bold size={14} />
@@ -1075,6 +1158,44 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
               );
             })()}
           </section>
+        </div>
+      ) : null}
+
+      {pendingDeleteScheduleId ? (
+        <div
+          id="info-popup"
+          tabIndex={-1}
+          className="tm-delete-popup-overlay"
+          onClick={() => setPendingDeleteScheduleId(null)}
+        >
+          <div className="tm-delete-popup-wrap" onClick={(event) => event.stopPropagation()}>
+            <div className="tm-delete-popup-card">
+              <div className="tm-delete-popup-copy">
+                <h3>删除日程确认</h3>
+                <p>
+                  你即将从时间轴删除
+                  <strong>{pendingDeleteSchedule ? `《${pendingDeleteSchedule.title}》` : "该任务"}</strong>
+                  。
+                </p>
+                <p className="tm-delete-popup-meta">
+                  {pendingDeleteSchedule
+                    ? `${formatTime(pendingDeleteSchedule.startHour, pendingDeleteSchedule.startMinute)} - ${formatTime(pendingDeleteSchedule.endHour, pendingDeleteSchedule.endMinute)} · 删除后可在5秒内撤销`
+                    : "删除后可在5秒内撤销"}
+                </p>
+              </div>
+              <div className="tm-delete-popup-actions">
+                <button id="close-modal" type="button" className="tiny-btn" onClick={() => setPendingDeleteScheduleId(null)}>取消</button>
+                <button id="confirm-button" type="button" className="tiny-btn danger" onClick={confirmRemoveSchedule}>确认删除</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showUndoBar && removedScheduleSnapshot ? (
+        <div className="tm-undo-bar" role="status" aria-live="polite">
+          <span>已删除《{removedScheduleSnapshot.title}》</span>
+          <button type="button" className="tiny-btn" onClick={undoRemoveSchedule}>撤销</button>
         </div>
       ) : null}
 

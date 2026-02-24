@@ -154,4 +154,3 @@ Superpowers 的核心价值不是“多一个命令”，而是把开发从“�
 
 在你的项目里，最实用的最小组合是：
 - `brainstorming` + `test-driven-development` + `verification-before-completion`
-

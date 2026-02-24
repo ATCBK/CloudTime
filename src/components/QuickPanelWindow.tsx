@@ -1,4 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from "react";
+import { ExplosiveGrowthCard } from "./ExplosiveGrowthCard";
+import { formatExplosiveCardTitle, getIncompleteTodoIds } from "./explosiveGrowthCardModel";
 import { QuickPanelItem } from "./quickPanelState";
 
 function formatTime(hour: number, minute: number): string {
@@ -20,40 +22,26 @@ export function QuickPanelWindow(): JSX.Element {
     return unsubscribe;
   }, []);
 
-  const title = useMemo(() => {
-    const date = new Date();
-    return `${date.getMonth() + 1}月${date.getDate()}日任务`;
-  }, []);
+  const title = useMemo(() => formatExplosiveCardTitle(new Date()), []);
 
   return (
-    <section className="desktop-quick-panel-shell">
-      <article className="desktop-quick-panel">
-        <header className="desktop-quick-panel-head">
-          <h2>{title}</h2>
-        </header>
-
-        <div className="desktop-quick-panel-list">
-          {items.length === 0 ? <p className="desktop-quick-panel-empty">今日暂无任务</p> : null}
-          {items.map((item) => (
-            <label key={item.scheduleId} className={item.completed ? "desktop-quick-item done" : "desktop-quick-item"}>
-              <input
-                type="checkbox"
-                checked={item.completed}
-                onChange={() => {
-                  void window.cloudo.toggleQuickPanelTask(item.todoId);
-                }}
-              />
-              <div className="desktop-quick-item-main">
-                <span className="desktop-quick-item-title">{item.title}</span>
-                <span className="desktop-quick-item-meta">
-                  {formatTime(item.startHour, item.startMinute)}-{formatTime(item.endHour, item.endMinute)} · {item.project}
-                </span>
-                {item.details.trim() ? <span className="desktop-quick-item-detail">{item.details}</span> : null}
-              </div>
-            </label>
-          ))}
-        </div>
-      </article>
-    </section>
+    <ExplosiveGrowthCard
+      title={title}
+      items={items.map((item) => ({
+        id: item.todoId,
+        title: item.title,
+        completed: item.completed,
+        meta: `${formatTime(item.startHour, item.startMinute)}-${formatTime(item.endHour, item.endMinute)}`
+      }))}
+      emptyText="今日暂无任务"
+      onToggleItem={(todoId) => {
+        void window.cloudo.toggleQuickPanelTask(todoId);
+      }}
+      onCompleteAll={() => {
+        for (const todoId of getIncompleteTodoIds(items)) {
+          void window.cloudo.toggleQuickPanelTask(todoId);
+        }
+      }}
+    />
   );
 }

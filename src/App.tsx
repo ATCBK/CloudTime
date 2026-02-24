@@ -96,8 +96,16 @@ export function App(): JSX.Element {
     );
   }, [activePage, settings, baseDir, setSettings]);
 
+  const shellClassName = [
+    "app-shell",
+    sidebarCollapsed ? "sidebar-collapsed" : "",
+    activePage === "time_manager" ? "time-manager-shell" : ""
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className={sidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"}>
+    <div className={shellClassName}>
       <Sidebar
         activePage={activePage}
         onNavigate={setActivePage}
