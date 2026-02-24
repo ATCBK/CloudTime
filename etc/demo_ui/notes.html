@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CloudTime 原型 - 笔记</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="nav-icon" href="./index.html" title="时间待办">
+        <svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="5.5"></circle><path d="M9 6.5v3l2 1.5"></path><path d="M14.5 14.5l1.7 1.7 3.3-3.3"></path></svg>
+      </a>
+      <a class="nav-icon active" href="./notes.html" title="笔记">
+        <svg viewBox="0 0 24 24"><path d="M7 3.5h8l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"></path><path d="M15 3.5V8h4M9 12h6M9 15.5h6"></path></svg>
+      </a>
+      <div class="nav-bottom">
+        <a class="nav-icon" href="./settings.html" title="设置">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.5 12a7.5 7.5 0 0 0-.1-1l2-1.5-2-3.5-2.4.8a7.8 7.8 0 0 0-1.7-1l-.4-2.5H11l-.4 2.5a7.8 7.8 0 0 0-1.7 1l-2.4-.8-2 3.5 2 1.5a7.5 7.5 0 0 0 0 2l-2 1.5 2 3.5 2.4-.8a7.8 7.8 0 0 0 1.7 1L11 21h4l.4-2.5a7.8 7.8 0 0 0 1.7-1l2.4.8 2-3.5-2-1.5c.1-.3.1-.7.1-1z"></path></svg>
+        </a>
+      </div>
+    </aside>
+
+    <main class="page">
+      <div class="topbar">
+        <strong>CloudTime / 笔记</strong>
+        <span class="small muted">存储路径：D:/CloudTime/notes</span>
+      </div>
+
+      <section class="notes-workspace">
+        <aside class="panel">
+          <div class="panel-head">文件树</div>
+          <ul class="file-list">
+            <li class="active">项目计划.md</li>
+            <li>周复盘.md</li>
+            <li>会议纪要/</li>
+            <li>知识库/</li>
+            <li>产品草案.md</li>
+          </ul>
+        </aside>
+
+        <div class="divider"></div>
+
+        <section class="notes-main">
+          <div class="panel" style="display:flex;align-items:center;justify-content:space-between;padding:0 12px;">
+            <strong>编辑工具栏</strong>
+            <div class="tool-row"><span>撤</span><span>重</span><span>H</span><span>B</span><span>I</span><span>链</span></div>
+          </div>
+
+          <div class="notes-body">
+            <aside class="panel">
+              <div class="panel-head">目录 TOC</div>
+              <ul class="toc-list">
+                <li class="active">1. 项目目标</li>
+                <li>2. 信息架构</li>
+                <li>3. 交互流程</li>
+                <li>4. 风险与待办</li>
+              </ul>
+            </aside>
+
+            <div class="divider"></div>
+
+            <article class="panel">
+              <div class="editor-canvas">
+                <h2>项目目标</h2>
+                <p>本页面为专业版 UI 原型，展示 Notes 的四块能力布局：文件树、TOC、编辑主区、评论与批注面板。</p>
+                <p>编辑区目标宽度控制在可阅读范围，避免超长行导致阅读疲劳。</p>
+                <h3>信息架构</h3>
+                <p>左树用于导航文档；TOC 用于章节定位；评论侧栏用于协作反馈。</p>
+              </div>
+            </article>
+
+            <div class="divider"></div>
+
+            <aside class="panel">
+              <div class="panel-head">评论与批注</div>
+              <div class="comment-list">
+                <div class="comment-item" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                  <strong>设计评审</strong>
+                  <p class="small muted">建议统一按钮圆角为 10px，提高视觉一致性。</p>
+                </div>
+                <div class="comment-item" style="background:#f8fafc;border:1px solid #e2e8f0;margin-top:8px;">
+                  <strong>产品备注</strong>
+                  <p class="small muted">TOC 折叠状态需要在正式版持久化。</p>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

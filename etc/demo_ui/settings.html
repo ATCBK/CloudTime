@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CloudTime 原型 - 设置</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="nav-icon" href="./index.html" title="时间待办">
+        <svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="5.5"></circle><path d="M9 6.5v3l2 1.5"></path><path d="M14.5 14.5l1.7 1.7 3.3-3.3"></path></svg>
+      </a>
+      <a class="nav-icon" href="./notes.html" title="笔记">
+        <svg viewBox="0 0 24 24"><path d="M7 3.5h8l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"></path><path d="M15 3.5V8h4M9 12h6M9 15.5h6"></path></svg>
+      </a>
+      <div class="nav-bottom">
+        <a class="nav-icon active" href="./settings.html" title="设置">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.5 12a7.5 7.5 0 0 0-.1-1l2-1.5-2-3.5-2.4.8a7.8 7.8 0 0 0-1.7-1l-.4-2.5H11l-.4 2.5a7.8 7.8 0 0 0-1.7 1l-2.4-.8-2 3.5 2 1.5a7.5 7.5 0 0 0 0 2l-2 1.5 2 3.5 2.4-.8a7.8 7.8 0 0 0 1.7 1L11 21h4l.4-2.5a7.8 7.8 0 0 0 1.7-1l2.4.8 2-3.5-2-1.5c.1-.3.1-.7.1-1z"></path></svg>
+        </a>
+      </div>
+    </aside>
+
+    <main class="page">
+      <div class="topbar">
+        <strong>CloudTime / 设置</strong>
+        <span class="small muted">原型模式：仅视觉展示</span>
+      </div>
+
+      <div class="toolbar">
+        <div class="title-wrap">
+          <h1>设置中心</h1>
+          <p>三列卡片：外观、快捷键、存储说明</p>
+        </div>
+      </div>
+
+      <section class="settings-grid">
+        <article class="settings-item">
+          <h3 style="margin-top:0">外观</h3>
+          <p class="small muted">主窗口透明度：80%</p>
+          <div class="slider"></div>
+          <p class="small muted">快捷浮窗透明度：72%</p>
+          <div class="slider" style="--x:42%"></div>
+        </article>
+
+        <article class="settings-item">
+          <h3 style="margin-top:0">快捷键</h3>
+          <p class="small muted">浮窗显示/隐藏</p>
+          <div class="field">Alt + Q</div>
+          <p class="small muted">快捷创建待办</p>
+          <div class="field">Alt + N</div>
+          <div style="height:10px"></div>
+          <button class="btn">保存快捷键（原型）</button>
+        </article>
+
+        <article class="settings-item">
+          <h3 style="margin-top:0">存储说明</h3>
+          <p class="muted small">主窗口固定切换快捷键：Alt + Space</p>
+          <p class="muted small">配置与页面状态在正式版会保存到本地存储键（localStorage / 配置文件）。</p>
+          <p class="muted small">当前为 UI 原型，不包含真实写入与冲突校验逻辑。</p>
+          <a class="small" href="./quick-panel.html" style="color:#2563eb;font-weight:700;">查看快捷浮窗原型 →</a>
+        </article>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

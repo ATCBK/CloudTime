@@ -1720,7 +1720,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
   };
 
   return (
-    <section className="page notes-page-clean">
+    <section className="page notes-page notes-page-clean">
       <header className="notes-meta-bar">
         <div className="notes-meta-left">
           <div className="meta-line">本地目录: {baseDir || "加载中..."}</div>

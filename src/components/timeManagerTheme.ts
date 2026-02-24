@@ -11,3 +11,8 @@ export function formatClockPill(date: Date): string {
   const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
   return `${hour12}:${minute} ${isAm ? "上午" : "下午"}`;
 }
+
+export function getClockParts(clockLabel: string): { time: string; period: string } {
+  const [time, period] = clockLabel.trim().split(/\s+/, 2);
+  return { time: time || "--:--", period: period || "" };
+}

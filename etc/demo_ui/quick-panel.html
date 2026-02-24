@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CloudTime 原型 - 快捷浮窗</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main style="padding:16px;">
+    <div class="quick-shell">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <strong>快捷浮窗</strong>
+        <a href="./index.html" class="chip">返回主原型</a>
+      </div>
+
+      <h2 style="margin:14px 0 0;">今日任务</h2>
+      <p class="small" style="color:#94a3b8;margin:6px 0 0;">2026-02-24 星期二</p>
+
+      <div class="quick-card">
+        <div class="check-row">
+          <span>完成开发</span>
+          <span class="chip">14:00-15:00</span>
+        </div>
+        <div class="check-row">
+          <span>接口联调</span>
+          <span class="chip">15:30-16:00</span>
+        </div>
+        <div class="check-row">
+          <span>UI 走查</span>
+          <span class="chip">16:30-17:00</span>
+        </div>
+      </div>
+
+      <button class="btn" style="margin-top:14px;">一键完成（原型）</button>
+      <p class="small" style="color:#94a3b8;margin-top:10px;">注：当前页面仅展示浮窗结构与视觉，不包含 IPC 同步逻辑。</p>
+    </div>
+  </main>
+</body>
+</html>

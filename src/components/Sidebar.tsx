@@ -1,4 +1,6 @@
+import { getNextManualThemeMode } from "../app/themeMode";
 import { AppPage } from "../types";
+import { useSettingsStore } from "../stores/useSettingsStore";
 
 interface SidebarProps {
   activePage: AppPage;
@@ -45,12 +47,20 @@ function Icon({ social }: { social: NavItem["social"] }): JSX.Element {
   );
 }
 
-function QuickActionIcon({ type }: { type: "quick-panel" | "quick-create" }): JSX.Element {
+function QuickActionIcon({ type }: { type: "quick-panel" | "quick-create" | "theme-toggle" }): JSX.Element {
   if (type === "quick-panel") {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <rect x="3.5" y="5" width="17" height="14" rx="3" />
         <path d="M8 10h8M8 14h5" />
+      </svg>
+    );
+  }
+  if (type === "theme-toggle") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3.5v2.2M12 18.3v2.2M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M3.5 12h2.2M18.3 12h2.2M5.6 18.4l1.6-1.6M16.8 7.2l1.6-1.6" />
+        <circle cx="12" cy="12" r="4.2" />
       </svg>
     );
   }
@@ -76,8 +86,17 @@ function renderNavItem(item: NavItem, activePage: AppPage, onNavigate: (page: Ap
 }
 
 export function Sidebar({ activePage, onNavigate }: SidebarProps): JSX.Element {
+  const settings = useSettingsStore((state) => state.settings);
+  const patchSettings = useSettingsStore((state) => state.patchSettings);
+
   const openQuickPanel = (): void => {
     void window.cloudo.toggleQuickPanelWindow();
+  };
+
+  const toggleTheme = (): void => {
+    const systemPrefersDark = typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const nextMode = getNextManualThemeMode(settings.themeMode, systemPrefersDark);
+    patchSettings({ themeMode: nextMode });
   };
 
   const focusQuickCreate = (): void => {
@@ -100,6 +119,12 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps): JSX.Element {
       <div className="sidebar-divider" aria-hidden="true" />
 
       <div className="sidebar-actions" role="group" aria-label="快捷操作">
+        <div className="icon-content">
+          <button type="button" className="quick-action-btn theme-toggle-btn" aria-label="切换主题" onClick={toggleTheme}>
+            <QuickActionIcon type="theme-toggle" />
+          </button>
+          <div className="tooltip">切换主题</div>
+        </div>
         <div className="icon-content">
           <button type="button" className="quick-action-btn" aria-label="快捷浮窗" onClick={openQuickPanel}>
             <QuickActionIcon type="quick-panel" />

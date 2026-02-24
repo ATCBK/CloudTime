@@ -8,7 +8,7 @@ import { boundRange, computeAutoScrollDelta, pointerToSnappedRange, snapToStep }
 import { buildQuickPanelItems, removeTodoAfterSchedule } from "./quickPanelState";
 import { buildHourSlots24, computeMinuteOfDay, computeMsUntilNextMidnight, computeMsUntilTodayRecycle, computeNowLineTop, isSameDateKey, toggleWeekExpandedDate } from "./timeManagerClock";
 import { computeLaneWidth, computeTimelineUsableWidth } from "./timelineLayout";
-import { formatClockPill, getGreetingLabel } from "./timeManagerTheme";
+import { getGreetingLabel } from "./timeManagerTheme";
 import { canCreateTodo, removeScheduleWithSnapshot, undoRemovedSchedule } from "./timeManagerSafety";
 
 interface TimeManagerPageProps {
@@ -816,7 +816,6 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
   };
 
   const timelineUsableWidth = computeTimelineUsableWidth(timelineWidth, TIMELINE_PADDING, TIMELINE_LABEL_WIDTH, MIN_CARD_WIDTH);
-  const headerClockLabel = useMemo(() => formatClockPill(new Date()), [nowMinute]);
   const greetingLabel = useMemo(() => getGreetingLabel(new Date().getHours()), [nowMinute]);
 
   return (
@@ -827,9 +826,26 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
           <p>{greetingLabel}</p>
         </div>
         <div className="tm-top-right">
-          <div className="tm-clock-pill">
-            <span>当前时间</span>
-            <strong>{headerClockLabel}</strong>
+          <div className="cardm" aria-label="状态卡片">
+            <div className="card">
+              <div className="weather">
+                <p className="main">专注模式</p>
+                <p className="mainsub">保持节奏</p>
+              </div>
+            </div>
+            <div className="card2">
+              <div className="upper">
+                <div>湿度 56%</div>
+                <div>空气 良</div>
+              </div>
+              <div className="humiditytext">Humidity</div>
+              <div className="airtext">Air</div>
+              <div className="lower">
+                <div className="aqi">AQI 42</div>
+                <div className="realfeel">体感 舒适</div>
+              </div>
+              <div className="card3">今日状态稳定</div>
+            </div>
           </div>
         </div>
       </header>
@@ -839,14 +855,6 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
           <button type="button" className={calendarView === "day" ? "chip active" : "chip"} onClick={() => setCalendarView("day")}>日视图</button>
           <button type="button" className={calendarView === "week" ? "chip active" : "chip"} onClick={() => setCalendarView("week")}>周视图</button>
           <button type="button" className={calendarView === "month" ? "chip active" : "chip"} onClick={() => setCalendarView("month")}>月视图</button>
-        </div>
-        <div className="view-switcher tm-view-switcher tm-tool-group">
-          <button type="button" className="chip" onClick={() => void window.cloudo.toggleQuickPanelWindow()} title="快捷浮窗 Alt+Q">
-            快捷浮窗
-          </button>
-          <button type="button" className="chip" onClick={() => quickCreateTitleRef.current?.focus()} title="新建待办 Alt+N">
-            新建待办
-          </button>
         </div>
       </div>
 

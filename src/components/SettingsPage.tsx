@@ -5,10 +5,17 @@ interface SettingsPageProps {
   settings: AppSettings;
   onOpacityChange: (value: number) => void;
   onQuickPanelOpacityChange: (value: number) => void;
+  onThemeModeChange: (mode: AppSettings["themeMode"]) => void;
   onHotkeysChange: (quickPanelHotkey: string, quickCreateTodoHotkey: string) => Promise<{ ok: boolean; message?: string }>;
 }
 
-export function SettingsPage({ settings, onOpacityChange, onQuickPanelOpacityChange, onHotkeysChange }: SettingsPageProps): JSX.Element {
+export function SettingsPage({
+  settings,
+  onOpacityChange,
+  onQuickPanelOpacityChange,
+  onThemeModeChange,
+  onHotkeysChange
+}: SettingsPageProps): JSX.Element {
   const [quickPanelHotkeyInput, setQuickPanelHotkeyInput] = useState(settings.quickPanelHotkey);
   const [quickCreateHotkeyInput, setQuickCreateHotkeyInput] = useState(settings.quickCreateTodoHotkey);
   const [hotkeyMessage, setHotkeyMessage] = useState<string>("");
@@ -24,14 +31,28 @@ export function SettingsPage({ settings, onOpacityChange, onQuickPanelOpacityCha
   };
 
   return (
-    <section className="page">
-      <header className="topbar">
-        <h2>设置</h2>
+    <section className="page settings-page">
+      <header className="topbar settings-topbar">
+        <h2>系统设置</h2>
+        <p className="soft-text">统一管理窗口外观、快捷键与存储策略</p>
       </header>
 
       <div className="settings-grid">
-        <section className="panel">
+        <section className="panel settings-panel">
           <h3>外观</h3>
+          <label className="settings-row" htmlFor="theme-mode">
+            主题模式
+          </label>
+          <select
+            id="theme-mode"
+            value={settings.themeMode}
+            onChange={(event) => onThemeModeChange(event.target.value as AppSettings["themeMode"])}
+          >
+            <option value="system">跟随系统</option>
+            <option value="light">浅色</option>
+            <option value="dark">夜间</option>
+          </select>
+
           <label className="settings-row" htmlFor="opacity">
             主窗口透明度（默认 100%）
           </label>
@@ -59,7 +80,7 @@ export function SettingsPage({ settings, onOpacityChange, onQuickPanelOpacityCha
           <p className="soft-text">{Math.round(settings.quickPanelOpacity * 100)}%</p>
         </section>
 
-        <section className="panel">
+        <section className="panel settings-panel">
           <h3>快捷键</h3>
           <label className="settings-row" htmlFor="quick-panel-hotkey">浮窗显示/隐藏</label>
           <input
@@ -95,7 +116,7 @@ export function SettingsPage({ settings, onOpacityChange, onQuickPanelOpacityCha
           <p className="soft-text">主窗口快捷键固定: Alt + Space</p>
         </section>
 
-        <section className="panel">
+        <section className="panel settings-panel">
           <h3>存储</h3>
           <p className="soft-text">Markdown 按项目文件夹管理</p>
         </section>

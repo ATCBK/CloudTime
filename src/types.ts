@@ -35,4 +35,5 @@ export interface AppSettings {
   quickCreateTodoHotkey: string;
   defaultTaskDuration: number;
   defaultProject: string;
+  themeMode: "system" | "light" | "dark";
 }

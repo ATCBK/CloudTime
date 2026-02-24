@@ -6,11 +6,10 @@ describe("timeManagerPalette", () => {
     expect(TIME_MANAGER_PALETTE).toEqual({
       brandBlue: "#10246C",
       brandYellow: "#FFD700",
-      bgSky: "#E0F2FF",
+      bgSky: "#FFFFFF",
       bgPanel: "#FFFFFF",
       statusSuccess: "#34D399",
       statusError: "#F87171"
     });
   });
 });
-

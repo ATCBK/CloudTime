@@ -1,5 +1,5 @@
-﻿import { describe, expect, it } from "vitest";
-import { formatClockPill, getGreetingLabel } from "./timeManagerTheme";
+import { describe, expect, it } from "vitest";
+import { formatClockPill, getClockParts, getGreetingLabel } from "./timeManagerTheme";
 
 describe("timeManagerTheme", () => {
   it("returns greeting by hour", () => {
@@ -13,5 +13,10 @@ describe("timeManagerTheme", () => {
     const evening = new Date(2026, 1, 23, 21, 5, 0, 0);
     expect(formatClockPill(morning)).toBe("10:45 上午");
     expect(formatClockPill(evening)).toBe("9:05 下午");
+  });
+
+  it("splits clock label into time and period", () => {
+    expect(getClockParts("10:45 上午")).toEqual({ time: "10:45", period: "上午" });
+    expect(getClockParts("9:05 下午")).toEqual({ time: "9:05", period: "下午" });
   });
 });

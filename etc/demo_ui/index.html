@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CloudTime 原型 - 时间待办</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="nav-icon active" href="./index.html" title="时间待办">
+        <svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="5.5"></circle><path d="M9 6.5v3l2 1.5"></path><path d="M14.5 14.5l1.7 1.7 3.3-3.3"></path></svg>
+      </a>
+      <a class="nav-icon" href="./notes.html" title="笔记">
+        <svg viewBox="0 0 24 24"><path d="M7 3.5h8l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"></path><path d="M15 3.5V8h4M9 12h6M9 15.5h6"></path></svg>
+      </a>
+      <div class="nav-bottom">
+        <a class="nav-icon" href="./settings.html" title="设置">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.5 12a7.5 7.5 0 0 0-.1-1l2-1.5-2-3.5-2.4.8a7.8 7.8 0 0 0-1.7-1l-.4-2.5H11l-.4 2.5a7.8 7.8 0 0 0-1.7 1l-2.4-.8-2 3.5 2 1.5a7.5 7.5 0 0 0 0 2l-2 1.5 2 3.5 2.4-.8a7.8 7.8 0 0 0 1.7 1L11 21h4l.4-2.5a7.8 7.8 0 0 0 1.7-1l2.4.8 2-3.5-2-1.5c.1-.3.1-.7.1-1z"></path></svg>
+        </a>
+      </div>
+    </aside>
+
+    <main class="page">
+      <div class="topbar">
+        <strong>CloudTime / 时间待办</strong>
+        <span class="meta-pill"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="M12 7v5l3 2"></path></svg>10:52 上午</span>
+      </div>
+
+      <div class="toolbar">
+        <div class="title-wrap">
+          <h1>时间管理看板</h1>
+          <p>专业版原型（仅 UI 结构与视觉，不含业务逻辑）</p>
+        </div>
+        <div class="seg">
+          <span class="on">日视图</span><span>周视图</span><span>月视图</span>
+        </div>
+      </div>
+
+      <section class="content-3col">
+        <div>
+          <article class="panel" style="height: 52%;">
+            <div class="panel-head">快速添加任务</div>
+            <div class="padded">
+              <div class="field small">例如：完成开发日报</div>
+              <div style="height:8px"></div>
+              <div class="field small">默认项目</div>
+              <div style="height:8px"></div>
+              <div class="field small">60 min</div>
+              <div style="height:8px"></div>
+              <div class="textarea small" style="height:84px">详情（可选）</div>
+              <div style="height:10px"></div>
+              <button class="btn">新建待办</button>
+            </div>
+          </article>
+
+          <div style="height:10px"></div>
+
+          <article class="panel" style="height: calc(48% - 10px);">
+            <div class="panel-head">待办池 <span class="small muted">0 个任务</span></div>
+            <div class="todo-empty">
+              <div>
+                <p>暂无待办，先创建今天需要完成的任务。</p>
+                <strong style="color:#3b82f6">+ 去创建</strong>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="divider"></div>
+
+        <article class="panel">
+          <div class="panel-head">日程计划 <span class="small muted">当前日期：2026-02-24</span></div>
+          <div class="timeline">
+            <div class="hour-col">
+              <span>07:00</span><span>08:00</span><span>09:00</span><span>10:00</span><span>11:00</span><span>12:00</span><span>13:00</span><span>14:00</span><span>15:00</span><span>16:00</span><span>17:00</span><span>18:00</span>
+            </div>
+            <div class="now-line"></div>
+            <div class="task-block">
+              <h4>完成开发</h4>
+              <p>默认项目 | 14:00 - 15:00</p>
+            </div>
+          </div>
+        </article>
+
+        <div class="divider"></div>
+
+        <article class="panel">
+          <div class="panel-head">轻笔记 <span class="tool-row"><span>B</span><span>I</span><span>•</span><span>∞</span></span></div>
+          <div class="padded">
+            <div class="note-card">
+              <h3 style="margin:0 0 8px">完成开发</h3>
+              <p class="small muted">项目：默认项目</p>
+              <p class="small muted">时间：14:00 - 15:00</p>
+              <p style="line-height:1.65;margin:10px 0 0">完成项目开发工作，包括接口联调与前端页面最终校验，确保交互流畅。</p>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
