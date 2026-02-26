@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from "vitest";
-import { buildTaskReferenceCardHtml, scheduleToTodoCandidate, toggleTodoCompleted } from "./timeManagerActions";
+import { buildTaskReferenceCardHtml, buildTaskReferenceDropHtml, scheduleToTodoCandidate, toggleTodoCompleted } from "./timeManagerActions";
 
 describe("timeManagerActions", () => {
   it("builds todo candidate from timeline schedule", () => {
@@ -27,9 +27,22 @@ describe("timeManagerActions", () => {
     });
 
     expect(html).toContain("ln-task-card");
+    expect(html).toContain('contenteditable="false"');
     expect(html).toContain("云朵开发");
     expect(html).toContain("Project A");
     expect(html).toContain("10:00-11:00");
+  });
+
+  it("builds drop html with a trailing editable paragraph", () => {
+    const html = buildTaskReferenceDropHtml({
+      taskId: "t_1",
+      title: "云朵开发",
+      project: "Project A",
+      timeLabel: "10:00-11:00"
+    });
+
+    expect(html).toContain('contenteditable="false"');
+    expect(html).toContain("<p><br></p>");
   });
 
   it("toggles todo completion", () => {

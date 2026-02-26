@@ -3,7 +3,7 @@ import { Bold, Check, Eye, EyeOff, GripVertical, Italic, Link2, List, RotateCcw,
 import { TimelineItem, TodoItem } from "../types";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { resolveInitialLightNoteHtml, sanitizeLightNoteHtml } from "./lightNoteRichText";
-import { buildTaskReferenceCardHtml, scheduleToTodoCandidate, toggleTodoCompleted } from "./timeManagerActions";
+import { buildTaskReferenceDropHtml, scheduleToTodoCandidate, toggleTodoCompleted } from "./timeManagerActions";
 import { boundRange, computeAutoScrollDelta, pointerToSnappedRange, snapToStep } from "./timeDragMath";
 import { buildQuickPanelItems, removeTodoAfterSchedule } from "./quickPanelState";
 import { buildHourSlots24, computeMinuteOfDay, computeMsUntilNextMidnight, computeMsUntilTodayRecycle, computeNowLineTop, isSameDateKey, toggleWeekExpandedDate } from "./timeManagerClock";
@@ -738,7 +738,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
   const insertTaskCardToLightNote = (item: ScheduledItem): void => {
     if (!lightNoteEditorRef.current) return;
     const timeLabel = `${formatTime(item.startHour, item.startMinute)} - ${formatTime(item.endHour, item.endMinute)}`;
-    const html = buildTaskReferenceCardHtml({
+    const html = buildTaskReferenceDropHtml({
       taskId: item.todoId,
       title: item.title,
       project: item.project,
@@ -824,29 +824,6 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
         <div className="tm-hero">
           <h2>时间管理看板</h2>
           <p>{greetingLabel}</p>
-        </div>
-        <div className="tm-top-right">
-          <div className="cardm" aria-label="状态卡片">
-            <div className="card">
-              <div className="weather">
-                <p className="main">专注模式</p>
-                <p className="mainsub">保持节奏</p>
-              </div>
-            </div>
-            <div className="card2">
-              <div className="upper">
-                <div>湿度 56%</div>
-                <div>空气 良</div>
-              </div>
-              <div className="humiditytext">Humidity</div>
-              <div className="airtext">Air</div>
-              <div className="lower">
-                <div className="aqi">AQI 42</div>
-                <div className="realfeel">体感 舒适</div>
-              </div>
-              <div className="card3">今日状态稳定</div>
-            </div>
-          </div>
         </div>
       </header>
 

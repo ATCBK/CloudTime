@@ -100,8 +100,15 @@ export function sanitizeLightNoteHtml(input: string): string {
     const taskIdSafe = taskIdRaw.replace(/[^a-zA-Z0-9_-]/g, "");
 
     const attrs: string[] = [];
+    const classNames = classSafe ? classSafe.split(/\s+/) : [];
+    const isTaskCard = classNames.includes("ln-task-card");
     if (classSafe) attrs.push(`class="${classSafe.replaceAll('"', "&quot;")}"`);
     if (taskIdSafe) attrs.push(`data-task-id="${taskIdSafe}"`);
+    const contentEditableMatch = rawAttrs.match(/contenteditable\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    const contentEditableRaw = contentEditableMatch ? contentEditableMatch[2] || contentEditableMatch[3] || contentEditableMatch[4] || "" : "";
+    if (tag === "div" && isTaskCard && contentEditableRaw.toLowerCase() === "false") {
+      attrs.push('contenteditable="false"');
+    }
 
     if (attrs.length > 0) return `<${tag} ${attrs.join(" ")}>`;
     return `<${tag}>`;

@@ -33,6 +33,9 @@ import {
 } from "lucide-react";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { NoteDocument } from "../types";
+import { resolveNextCurrentNoteId } from "./noteSelection";
+import { sanitizeClipboardHtmlForNotes } from "./notePasteFallback";
+import { CONTEXT_SELECTION_ACTIONS, FLOATING_SELECTION_ACTIONS, SELECTION_BLOCK_MENU_COMPACT, SelectionActionId } from "./notesSelectionActions";
 
 interface NotesPageProps {
   notes: NoteDocument[];
@@ -134,6 +137,8 @@ const DEFAULT_TOOLBAR_ORDER = [
   "italic",
   "delete"
 ] as const;
+const DEFAULT_LEFT_PANE_WIDTH = 240;
+const LEGACY_LEFT_PANE_MAX = 240;
 const CAPSULE_IDLE_MS = 1000;
 const CAPSULE_MIN_SIZE = 44;
 const CAPSULE_TRACK_PADDING = 6;
@@ -345,7 +350,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
   const [folders, setFolders] = useLocalStorageState<FolderNode[]>("cloudo.notes.tree", initialFolders);
   const [expandedIds, setExpandedIds] = useLocalStorageState<string[]>("cloudo.notes.expanded", []);
   const [selectedFolderId, setSelectedFolderId] = useLocalStorageState<string>("cloudo.notes.selectedFolder", initialFolders[0]?.id ?? "");
-  const [leftPaneWidth, setLeftPaneWidth] = useLocalStorageState<number>("cloudo.notes.leftPaneWidth", 280);
+  const [leftPaneWidth, setLeftPaneWidth] = useLocalStorageState<number>("cloudo.notes.leftPaneWidth", DEFAULT_LEFT_PANE_WIDTH);
   const [commentPaneWidth, setCommentPaneWidth] = useLocalStorageState<number>("cloudo.notes.commentPaneWidth", 280);
   const [treePanelCollapsed, setTreePanelCollapsed] = useLocalStorageState<boolean>("cloudo.notes.treePanelCollapsed", false);
   const [tocPanelCollapsed, setTocPanelCollapsed] = useLocalStorageState<boolean>("cloudo.notes.tocPanelCollapsed", false);
@@ -410,6 +415,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
   const tocOffsetsRef = useRef<number[]>([]);
   const tocSyncRafRef = useRef<number | null>(null);
   const tocSyncTimerRef = useRef<number | null>(null);
+  const leftPaneMigratedRef = useRef<boolean>(false);
 
   const [commentsByNote, setCommentsByNote] = useLocalStorageState<Record<string, NoteComment[]>>("cloudo.notes.commentsByNote", {});
 
@@ -461,23 +467,20 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     if (!folderIdSet.has(selectedFolderId)) setSelectedFolderId(folders[0].id);
   }, [folders, folderIdSet, selectedFolderId, setFolders, setSelectedFolderId]);
 
+  // One-time migration: narrow legacy persisted widths to the new default.
   useEffect(() => {
-    if (!selectedFolder) return;
-    const notesInSelected = noteList.filter((n) => n.folderId === selectedFolder.id);
-    if (notesInSelected.length === 0) {
-      if (currentNoteId) setCurrentNoteId("");
-      return;
+    if (leftPaneMigratedRef.current) return;
+    leftPaneMigratedRef.current = true;
+    if (leftPaneWidth > LEGACY_LEFT_PANE_MAX) {
+      setLeftPaneWidth(DEFAULT_LEFT_PANE_WIDTH);
     }
-    const stillExists = notesInSelected.some((n) => n.id === currentNoteId);
-    if (!stillExists) setCurrentNoteId(notesInSelected[0].id);
-  }, [noteList, selectedFolder, currentNoteId, setCurrentNoteId]);
+  }, [leftPaneWidth, setLeftPaneWidth]);
 
   useEffect(() => {
-    if (!currentNoteId) return;
-    const current = noteList.find((item) => item.id === currentNoteId);
-    if (!current) return;
-    if (selectedFolderId !== current.folderId) setSelectedFolderId(current.folderId);
-  }, [currentNoteId, noteList, selectedFolderId, setSelectedFolderId]);
+    if (!selectedFolder) return;
+    const nextCurrentNoteId = resolveNextCurrentNoteId(noteList, selectedFolder.id, currentNoteId);
+    if (nextCurrentNoteId !== currentNoteId) setCurrentNoteId(nextCurrentNoteId);
+  }, [noteList, selectedFolder, currentNoteId, setCurrentNoteId]);
 
   // Normalize legacy titles loaded from storage to avoid garbled/wrapped artifacts.
   useEffect(() => {
@@ -1010,16 +1013,17 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     if (!clipboard) return;
 
     const html = clipboard.getData("text/html");
+    const text = clipboard.getData("text/plain");
     if (html) {
       event.preventDefault();
-      document.execCommand("insertHTML", false, sanitizeUnsupportedHtml(html));
+      const sanitizedPasteHtml = sanitizeClipboardHtmlForNotes(html, text);
+      document.execCommand("insertHTML", false, sanitizedPasteHtml);
       updateCurrentNote(editorRef.current.innerHTML);
       updateSelectionMenu();
       updateFormatState();
       return;
     }
 
-    const text = clipboard.getData("text/plain");
     if (text) {
       event.preventDefault();
       document.execCommand("insertText", false, text);
@@ -1080,7 +1084,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     if (nextFolders) setFolders(nextFolders);
     if (nextExpanded) setExpandedIds(nextExpanded);
     if (nextSelectedFolderId) setSelectedFolderId(nextSelectedFolderId);
-    if (typeof nextPaneWidth === "number") setLeftPaneWidth(nextPaneWidth);
+    if (typeof nextPaneWidth === "number") setLeftPaneWidth(Math.min(nextPaneWidth, LEGACY_LEFT_PANE_MAX));
     if (nextNotes) setNoteList(nextNotes);
     if (nextCurrentNote) setCurrentNoteId(nextCurrentNote);
     setSaveText("已刷新");
@@ -1707,6 +1711,57 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     });
   };
 
+  const renderSelectionActionButton = (actionId: SelectionActionId, closeContextMenu = false): JSX.Element => {
+    if (actionId === "blockMenu") {
+      return (
+        <button
+          key={actionId}
+          type="button"
+          className={formatState.block !== "paragraph" ? "active" : ""}
+          title="段落与列表"
+          onClick={(event) => {
+            event.stopPropagation();
+            const rect = (event.currentTarget as HTMLButtonElement).getBoundingClientRect();
+            openBlockMenuAt(rect.left, rect.bottom + 8, SELECTION_BLOCK_MENU_COMPACT);
+            if (closeContextMenu) {
+              setSelectionContext((prev) => (prev.visible ? { ...prev, visible: false } : prev));
+            }
+          }}
+        >
+          <List size={14} />
+        </button>
+      );
+    }
+    if (actionId === "bold") {
+      return <button key={actionId} type="button" className={formatState.bold ? "active" : ""} onClick={() => runCommand("bold")} title="加粗"><Bold size={14} /></button>;
+    }
+    if (actionId === "italic") {
+      return <button key={actionId} type="button" className={formatState.italic ? "active" : ""} onClick={() => runCommand("italic")} title="斜体"><Italic size={14} /></button>;
+    }
+    if (actionId === "underline") {
+      return <button key={actionId} type="button" className={formatState.underline ? "active" : ""} onClick={() => runCommand("underline")} title="下划线"><Underline size={14} /></button>;
+    }
+    if (actionId === "alignLeft") {
+      return <button key={actionId} type="button" className={formatState.align === "left" ? "active" : ""} onClick={() => runCommand("justifyLeft")} title="左对齐"><AlignLeft size={14} /></button>;
+    }
+    if (actionId === "alignCenter") {
+      return <button key={actionId} type="button" className={formatState.align === "center" ? "active" : ""} onClick={() => runCommand("justifyCenter")} title="居中"><AlignCenter size={14} /></button>;
+    }
+    if (actionId === "alignRight") {
+      return <button key={actionId} type="button" className={formatState.align === "right" ? "active" : ""} onClick={() => runCommand("justifyRight")} title="右对齐"><AlignRight size={14} /></button>;
+    }
+    if (actionId === "clear") {
+      return <button key={actionId} type="button" onClick={() => { runCommand("removeFormat"); runCommand("formatBlock", "<p>"); }} title="清除格式"><RemoveFormatting size={14} /></button>;
+    }
+    if (actionId === "comment") {
+      return <button key={actionId} type="button" onClick={startSelectionCommentInput} title="关联评论"><MessageSquarePlus size={14} /></button>;
+    }
+    if (actionId === "link") {
+      return <button key={actionId} type="button" onClick={insertLink} title="链接"><Link2 size={14} /></button>;
+    }
+    return <button key={actionId} type="button" onClick={insertCode} title="代码"><Code size={14} /></button>;
+  };
+
   const wordCount = useMemo(() => stripHtml(sanitizedCurrentHtml).length, [sanitizedCurrentHtml]);
   const copyAllText = async (): Promise<void> => {
     if (!currentNote) return;
@@ -1967,27 +2022,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
           style={{ left: selectionMenu.x, top: selectionMenu.y }}
           onMouseDown={(event) => event.preventDefault()}
         >
-          <button
-            type="button"
-            className={formatState.block !== "paragraph" ? "active" : ""}
-            title="段落与列表"
-            onClick={(event) => {
-              const rect = (event.currentTarget as HTMLButtonElement).getBoundingClientRect();
-              openBlockMenuAt(rect.left, rect.bottom + 8, true);
-            }}
-          >
-            <List size={14} />
-          </button>
-          <button type="button" className={formatState.bold ? "active" : ""} onClick={() => runCommand("bold")} title="加粗"><Bold size={14} /></button>
-          <button type="button" className={formatState.italic ? "active" : ""} onClick={() => runCommand("italic")} title="斜体"><Italic size={14} /></button>
-          <button type="button" className={formatState.underline ? "active" : ""} onClick={() => runCommand("underline")} title="下划线"><Underline size={14} /></button>
-          <button type="button" className={formatState.align === "left" ? "active" : ""} onClick={() => runCommand("justifyLeft")} title="左对齐"><AlignLeft size={14} /></button>
-          <button type="button" className={formatState.align === "center" ? "active" : ""} onClick={() => runCommand("justifyCenter")} title="居中"><AlignCenter size={14} /></button>
-          <button type="button" className={formatState.align === "right" ? "active" : ""} onClick={() => runCommand("justifyRight")} title="右对齐"><AlignRight size={14} /></button>
-          <button type="button" onClick={() => { runCommand("removeFormat"); runCommand("formatBlock", "<p>"); }} title="清除格式"><RemoveFormatting size={14} /></button>
-          <button type="button" onClick={startSelectionCommentInput} title="关联评论"><MessageSquarePlus size={14} /></button>
-          <button type="button" onClick={insertLink} title="链接"><Link2 size={14} /></button>
-          <button type="button" onClick={insertCode} title="代码"><Code size={14} /></button>
+          {FLOATING_SELECTION_ACTIONS.map((actionId) => renderSelectionActionButton(actionId))}
         </div>
       ) : null}
 
@@ -1997,27 +2032,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
           style={{ left: selectionContext.x, top: selectionContext.y }}
           onMouseDown={(event) => event.preventDefault()}
         >
-          <button
-            type="button"
-            className={formatState.block !== "paragraph" ? "active" : ""}
-            title="段落与列表"
-            onClick={(event) => {
-              const rect = (event.currentTarget as HTMLButtonElement).getBoundingClientRect();
-              openBlockMenuAt(rect.left, rect.bottom + 8, true);
-              setSelectionContext((prev) => (prev.visible ? { ...prev, visible: false } : prev));
-            }}
-          >
-            <List size={14} />
-          </button>
-          <button type="button" className={formatState.bold ? "active" : ""} onClick={() => runCommand("bold")} title="加粗"><Bold size={14} /></button>
-          <button type="button" className={formatState.italic ? "active" : ""} onClick={() => runCommand("italic")} title="斜体"><Italic size={14} /></button>
-          <button type="button" className={formatState.align === "left" ? "active" : ""} onClick={() => runCommand("justifyLeft")} title="左对齐"><AlignLeft size={14} /></button>
-          <button type="button" className={formatState.align === "center" ? "active" : ""} onClick={() => runCommand("justifyCenter")} title="居中"><AlignCenter size={14} /></button>
-          <button type="button" className={formatState.align === "right" ? "active" : ""} onClick={() => runCommand("justifyRight")} title="右对齐"><AlignRight size={14} /></button>
-          <button type="button" onClick={() => { runCommand("removeFormat"); runCommand("formatBlock", "<p>"); }} title="清除格式"><RemoveFormatting size={14} /></button>
-          <button type="button" onClick={startSelectionCommentInput} title="关联评论"><MessageSquarePlus size={14} /></button>
-          <button type="button" onClick={insertLink} title="链接"><Link2 size={14} /></button>
-          <button type="button" onClick={insertCode} title="代码"><Code size={14} /></button>
+          {CONTEXT_SELECTION_ACTIONS.map((actionId) => renderSelectionActionButton(actionId, true))}
         </div>
       ) : null}
 

@@ -51,7 +51,11 @@ export function buildTaskReferenceCardHtml(payload: TaskReferenceCardPayload): s
   const time = escapeHtml(payload.timeLabel);
   const taskId = escapeHtml(payload.taskId);
 
-  return `<div class="ln-task-card" data-task-id="${taskId}"><div class="ln-task-title">${title}</div><div class="ln-task-meta">${project}</div><div class="ln-task-time">${time}</div></div>`;
+  return `<div class="ln-task-card" data-task-id="${taskId}" contenteditable="false"><div class="ln-task-title">${title}</div><div class="ln-task-meta">${project}</div><div class="ln-task-time">${time}</div></div>`;
+}
+
+export function buildTaskReferenceDropHtml(payload: TaskReferenceCardPayload): string {
+  return `${buildTaskReferenceCardHtml(payload)}<p><br></p>`;
 }
 
 export function toggleTodoCompleted(completed: boolean): boolean {

@@ -72,6 +72,16 @@ function QuickActionIcon({ type }: { type: "quick-panel" | "quick-create" | "the
   );
 }
 
+function BrandCloud(): JSX.Element {
+  return (
+    <svg className="brand-cloud" viewBox="0 0 24 24" aria-hidden="true">
+      <path className="brand-cloud-fill" d="M7.2 18a4.7 4.7 0 0 1-.6-9.3 5.9 5.9 0 0 1 10.9-1.9 4.1 4.1 0 1 1 .7 8.2z" />
+      <path className="brand-cloud-stroke" d="M7.2 18a4.7 4.7 0 0 1-.6-9.3 5.9 5.9 0 0 1 10.9-1.9 4.1 4.1 0 1 1 .7 8.2z" />
+      <path className="brand-cloud-stroke" d="M9.2 13.9h5.5" />
+    </svg>
+  );
+}
+
 function renderNavItem(item: NavItem, activePage: AppPage, onNavigate: (page: AppPage) => void): JSX.Element {
   const activeClass = activePage === item.page ? "nav-link active" : "nav-link";
   return (
@@ -109,7 +119,9 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps): JSX.Element {
   return (
     <aside className="sidebar" aria-label="侧边导航">
       <div className="sidebar-brand" aria-hidden="true">
-        <span className="brand-mark">C</span>
+        <span className="brand-mark">
+          <BrandCloud />
+        </span>
       </div>
 
       <div className="sidebar-main" role="group" aria-label="主导航">

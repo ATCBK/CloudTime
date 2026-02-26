@@ -30,10 +30,11 @@ describe("lightNoteRichText", () => {
   });
 
   it("keeps safe task reference card markup", () => {
-    const raw = '<div class="ln-task-card" data-task-id="t1"><div class="ln-task-title">A</div></div>';
+    const raw = '<div class="ln-task-card" data-task-id="t1" contenteditable="false"><div class="ln-task-title">A</div></div>';
     const html = sanitizeLightNoteHtml(raw);
     expect(html).toContain('class="ln-task-card"');
     expect(html).toContain('data-task-id="t1"');
+    expect(html).toContain('contenteditable="false"');
     expect(html).toContain('class="ln-task-title"');
   });
 });
