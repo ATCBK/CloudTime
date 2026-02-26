@@ -6,7 +6,7 @@ import { resolveInitialLightNoteHtml, sanitizeLightNoteHtml } from "./lightNoteR
 import { buildTaskReferenceDropHtml, scheduleToTodoCandidate, toggleTodoCompleted } from "./timeManagerActions";
 import { boundRange, computeAutoScrollDelta, pointerToSnappedRange, snapToStep } from "./timeDragMath";
 import { buildQuickPanelItems, removeTodoAfterSchedule } from "./quickPanelState";
-import { buildHourSlots24, computeMinuteOfDay, computeMsUntilNextMidnight, computeMsUntilTodayRecycle, computeNowLineTop, isSameDateKey, toggleWeekExpandedDate } from "./timeManagerClock";
+import { buildHourSlots24, computeMinuteOfDay, computeMsUntilNextMidnight, computeMsUntilTodayRecycle, computeNowLineTop, isSameDateKey, isValidDateKey, toggleWeekExpandedDate } from "./timeManagerClock";
 import { computeLaneWidth, computeTimelineUsableWidth } from "./timelineLayout";
 import { getGreetingLabel } from "./timeManagerTheme";
 import { canCreateTodo, removeScheduleWithSnapshot, undoRemovedSchedule } from "./timeManagerSafety";
@@ -916,7 +916,19 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
         <section className="panel middle tm-middle-panel">
           <div className="panel-title-row">
             <h3>{calendarView === "day" ? "日程计划" : calendarView === "week" ? "周视图" : "月视图"}</h3>
-            <span className="soft-text">当前日期: {selectedDateKey}</span>
+            <label className="tm-date-picker-label">
+              <span className="soft-text">日期</span>
+              <input
+                type="date"
+                className="tm-date-picker-input"
+                value={selectedDateKey}
+                onChange={(event) => {
+                  const nextDateKey = event.target.value;
+                  if (isValidDateKey(nextDateKey)) setSelectedDateKey(nextDateKey);
+                }}
+                aria-label="选择计划日期"
+              />
+            </label>
           </div>
 
           {calendarView === "day" ? (

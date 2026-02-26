@@ -5,6 +5,7 @@ import {
   computeMsUntilNextMidnight,
   computeMsUntilTodayRecycle,
   computeNowLineTop,
+  isValidDateKey,
   isSameDateKey,
   parseQuickTimeInput,
   toggleWeekExpandedDate
@@ -57,5 +58,12 @@ describe("timeManagerClock", () => {
   it("compares date key safely", () => {
     expect(isSameDateKey("2026-02-23", "2026-02-23")).toBe(true);
     expect(isSameDateKey("2026-02-23", "2026-02-24")).toBe(false);
+  });
+
+  it("accepts valid date key and rejects invalid date key", () => {
+    expect(isValidDateKey("2026-02-26")).toBe(true);
+    expect(isValidDateKey("2026-2-26")).toBe(false);
+    expect(isValidDateKey("2026-13-01")).toBe(false);
+    expect(isValidDateKey("foo")).toBe(false);
   });
 });

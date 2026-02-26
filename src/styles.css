@@ -2588,6 +2588,8 @@ body.quick-panel-window-view #root {
   --status-error: #F87171;
   --brand-blue-rgb: 16, 36, 108;
   --brand-yellow-rgb: 255, 215, 0;
+  --tm-surface: #ffffff;
+  --tm-surface-soft: rgba(var(--brand-blue-rgb), 0.04);
   --tm-border: rgba(var(--brand-blue-rgb), 0.16);
   --tm-panel-soft: rgba(var(--brand-blue-rgb), 0.04);
   --tm-input-bg: rgba(var(--brand-blue-rgb), 0.025);
@@ -2596,6 +2598,7 @@ body.quick-panel-window-view #root {
   --tm-radius-panel: 8px;
   --tm-radius-card: 8px;
   --tm-radius-input: 8px;
+  --tm-text: var(--brand-blue);
   --tm-text-primary: var(--brand-blue);
   --tm-text-muted: rgba(var(--brand-blue-rgb), 0.62);
   background: #ffffff;
@@ -2695,6 +2698,21 @@ body.quick-panel-window-view #root {
   font-weight: 700;
 }
 
+.time-manager-page .tm-date-picker-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.time-manager-page .tm-date-picker-input {
+  border: 1px solid var(--tm-border);
+  border-radius: var(--tm-radius-input);
+  background: var(--tm-surface);
+  color: var(--tm-text-primary);
+  padding: 4px 8px;
+  min-height: 30px;
+}
+
 .tm-left-panel .panel-title-row h3 {
   font-size: 18px;
 }
@@ -2782,7 +2800,7 @@ body.quick-panel-window-view #root {
 .time-manager-page .timeline {
   border-radius: var(--tm-radius-card);
   border-color: var(--tm-border);
-  background: var(--bg-panel);
+  background: var(--tm-surface);
 }
 
 .time-manager-page .timeline-hour {
@@ -2805,7 +2823,7 @@ body.quick-panel-window-view #root {
 }
 
 .tm-note-panel {
-  background: var(--bg-panel);
+  background: var(--tm-surface);
 }
 
 .tm-note-title {
@@ -2863,6 +2881,48 @@ body.quick-panel-window-view #root {
 .time-manager-page .ln-task-card {
   background: rgba(var(--brand-blue-rgb), 0.05);
   border-radius: var(--tm-radius-input);
+}
+
+.time-manager-page .week-cell,
+.time-manager-page .month-cell {
+  border-color: var(--tm-border);
+  background: var(--tm-surface);
+  color: var(--tm-text-primary);
+}
+
+.time-manager-page .month-cell.muted {
+  opacity: 0.45;
+  color: var(--tm-text-muted);
+}
+
+.time-manager-page .week-item {
+  border-color: var(--tm-border);
+  background: var(--tm-surface);
+  color: var(--tm-text-primary);
+}
+
+.time-manager-page .week-date-btn.active {
+  color: var(--bg-panel);
+  background: var(--brand-blue);
+}
+
+.time-manager-page .week-expanded-day {
+  border-color: var(--tm-border);
+  background: linear-gradient(180deg, var(--tm-surface) 0%, var(--tm-surface-soft) 100%);
+}
+
+.time-manager-page .week-expanded-row {
+  border-bottom-color: var(--tm-border);
+}
+
+.time-manager-page .week-expanded-row span {
+  color: var(--tm-text-muted);
+}
+
+.time-manager-page .week-expanded-card {
+  border-color: var(--tm-border);
+  background: var(--tm-surface-soft);
+  color: var(--tm-text-primary);
 }
 
 .time-manager-page .now-line {
@@ -3560,11 +3620,14 @@ html[data-theme="dark"] .block-format-menu hr {
    keep black background, use layered dark panels + white text */
 html[data-theme="dark"] .time-manager-shell {
   --bg-panel: #252526;
+  --tm-surface: #252526;
+  --tm-surface-soft: #2d2d30;
   --tm-border: #3c3c3c;
   --tm-panel-soft: #2d2d30;
   --tm-input-bg: #1e1e1e;
+  --tm-text: #d4d4d4;
   --tm-text-primary: #ffffff;
-  --tm-text-muted: #d4d4d4;
+  --tm-text-muted: #9da5b4;
 }
 
 html[data-theme="dark"] .time-manager-page {
@@ -3671,6 +3734,30 @@ html[data-theme="dark"] .time-manager-page .tm-view-switcher .chip.active {
   background: #0e639c !important;
   border-color: #0e639c !important;
   color: #ffffff !important;
+}
+
+html[data-theme="dark"] .time-manager-page .week-cell,
+html[data-theme="dark"] .time-manager-page .month-cell,
+html[data-theme="dark"] .time-manager-page .week-item,
+html[data-theme="dark"] .time-manager-page .week-expanded-day,
+html[data-theme="dark"] .time-manager-page .week-expanded-card {
+  background: var(--tm-surface) !important;
+  border-color: var(--tm-border) !important;
+  color: var(--tm-text) !important;
+}
+
+html[data-theme="dark"] .time-manager-page .week-expanded-row {
+  border-bottom-color: var(--tm-border) !important;
+}
+
+html[data-theme="dark"] .time-manager-page .week-expanded-row span,
+html[data-theme="dark"] .time-manager-page .month-cell.muted {
+  color: var(--tm-text-muted) !important;
+}
+
+html[data-theme="dark"] .time-manager-page .week-date-btn.active {
+  color: #ffffff !important;
+  background: #0e639c !important;
 }
 
 html[data-theme="dark"] .time-manager-page .tm-note-panel .note-toolbar {
