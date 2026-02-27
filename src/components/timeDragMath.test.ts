@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from "vitest";
-import { boundRange, computeAutoScrollDelta, pointerToSnappedRange, snapToStep } from "./timeDragMath";
+import { boundRange, computeAutoScrollDelta, pointerToSnappedRange, resizeBottomEdge, resizeTopEdge, snapToStep } from "./timeDragMath";
 
 describe("timeDragMath", () => {
   it("snaps minute to 15 minute step", () => {
@@ -27,5 +27,17 @@ describe("timeDragMath", () => {
   it("maps deep scroll pointer to late-day range for full-day timeline", () => {
     // 23:50 in a 24h timeline should snap near the day end and stay bounded.
     expect(pointerToSnappedRange((23 * 56) + 46, 60, 1440, 56, 15)).toEqual({ start: 1380, end: 1440 });
+  });
+
+  it("clamps top-edge resize to keep minimum duration", () => {
+    expect(resizeTopEdge(100, 180, 15)).toBe(100);
+    expect(resizeTopEdge(175, 180, 15)).toBe(165);
+    expect(resizeTopEdge(-20, 180, 15)).toBe(0);
+  });
+
+  it("clamps bottom-edge resize to keep minimum duration and timeline max", () => {
+    expect(resizeBottomEdge(260, 180, 15, 1440)).toBe(260);
+    expect(resizeBottomEdge(182, 180, 15, 1440)).toBe(195);
+    expect(resizeBottomEdge(1500, 180, 15, 1440)).toBe(1440);
   });
 });

@@ -1,0 +1,415 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CloudTime - 三栏时间待办</title>
+  <style>
+    :root {
+      --bg: #f3f4f7;
+      --panel: #ffffff;
+      --panel-soft: #f8f9fc;
+      --muted: #7a818a;
+      --text: #14171c;
+      --line: #e6e9ef;
+      --primary: #111318;
+      --blue-bg: #dcebff;
+      --blue-text: #173a6a;
+      --green-bg: #e3f6e9;
+      --green-text: #1c5b36;
+      --radius-xl: 18px;
+      --radius-lg: 14px;
+      --radius-md: 12px;
+      --radius-sm: 10px;
+      --shadow: 0 1px 2px rgba(17, 19, 24, 0.04), 0 6px 18px rgba(17, 19, 24, 0.06);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "SF Pro Display", "PingFang SC", -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 15% -20%, #ffffff 0%, var(--bg) 45%, #eceef3 100%);
+    }
+
+    .app {
+      width: min(1440px, 100vw);
+      min-height: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .topbar {
+      height: 64px;
+      background: var(--panel);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 320px 1fr 320px;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .row, .left-actions, .right-actions { display: flex; align-items: center; gap: 8px; }
+
+    .btn {
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: #eff1f5;
+      color: #3a3f45;
+      height: 36px;
+      padding: 0 14px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .btn.primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .date-title {
+      justify-self: center;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.1px;
+    }
+
+    .main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 280px 1fr 320px;
+      gap: 16px;
+      min-height: 780px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .panel h2 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .subtle {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .group {
+      background: #f6f7fa;
+      border-radius: var(--radius-md);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .group-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .todo-card {
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      background: #fff;
+      min-height: 42px;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #2a2f36;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .todo-card:active { cursor: grabbing; }
+
+    .todo-card.dragging {
+      opacity: 0.45;
+      border-color: #b2c8f8;
+    }
+
+    .badge {
+      font-size: 11px;
+      color: #5f6670;
+      background: #f2f4f7;
+      border-radius: 999px;
+      padding: 2px 8px;
+      white-space: nowrap;
+    }
+
+    .timeline-wrap {
+      background: var(--panel-soft);
+      border-radius: var(--radius-lg);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .timeline-note {
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .time-row {
+      min-height: 52px;
+      border: 1px dashed transparent;
+      border-radius: 10px;
+      display: grid;
+      grid-template-columns: 56px 1fr;
+      align-items: center;
+      gap: 10px;
+      padding: 0 8px;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .time-row .label {
+      font-size: 12px;
+      color: #6f7680;
+      font-weight: 600;
+    }
+
+    .line {
+      height: 1px;
+      background: var(--line);
+      width: 100%;
+    }
+
+    .time-row.drop-target {
+      border-color: #b7c9ee;
+      background: #f2f6ff;
+    }
+
+    .slot {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .event {
+      width: 100%;
+      border-radius: 12px;
+      min-height: 56px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+      font-size: 12px;
+    }
+
+    .event strong { font-size: 13px; }
+
+    .event.blue { background: var(--blue-bg); color: var(--blue-text); }
+    .event.green { background: var(--green-bg); color: var(--green-text); }
+
+    .save-state {
+      min-height: 34px;
+      border-radius: var(--radius-sm);
+      background: #f3f5f8;
+      padding: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #5e6670;
+      display: flex;
+      align-items: center;
+    }
+
+    textarea {
+      flex: 1;
+      resize: none;
+      border: 0;
+      outline: none;
+      border-radius: var(--radius-md);
+      background: #fafbfd;
+      padding: 12px;
+      color: #4b535d;
+      font-size: 14px;
+      line-height: 1.5;
+      font-family: inherit;
+    }
+
+    @media (max-width: 1200px) {
+      .app { width: 1440px; min-width: 1440px; }
+      body { overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="left-actions">
+        <button class="btn" type="button">&lt;</button>
+        <button class="btn primary" type="button">Today</button>
+        <button class="btn" type="button">&gt;</button>
+      </div>
+      <div class="date-title" id="dateTitle">Thursday, February 27</div>
+      <div class="right-actions">
+        <button class="btn" type="button">Search</button>
+        <button class="btn" type="button">Filter</button>
+        <button class="btn primary" type="button">+ New Task</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="panel">
+        <h2>Inbox</h2>
+        <p class="subtle">Project Groups</p>
+
+        <div class="group">
+          <p class="group-title">Work</p>
+          <article class="todo-card" draggable="true" data-title="Finalize roadmap" data-duration="1h">
+            <span>Finalize roadmap</span>
+            <span class="badge">1h</span>
+          </article>
+          <article class="todo-card" draggable="true" data-title="Client sync prep" data-duration="1h">
+            <span>Client sync prep</span>
+            <span class="badge">1h</span>
+          </article>
+        </div>
+
+        <div class="group">
+          <p class="group-title">Study</p>
+          <article class="todo-card" draggable="true" data-title="Read AI paper" data-duration="1h">
+            <span>Read AI paper</span>
+            <span class="badge">1h</span>
+          </article>
+        </div>
+
+        <div class="group">
+          <p class="group-title">Life</p>
+          <article class="todo-card" draggable="true" data-title="Gym session" data-duration="1h">
+            <span>Gym session</span>
+            <span class="badge">1h</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Timeline 08:00-22:00</h2>
+        <p class="timeline-note">Drag tasks from Inbox into hourly slots</p>
+
+        <div class="timeline-wrap" id="timeline"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Notes</h2>
+        <div class="save-state" id="saveState">Autosave on · Saved</div>
+        <textarea id="notes" placeholder="Write your focus notes here...&#10;&#10;- Keep it short&#10;- Capture decisions&#10;- Next action"></textarea>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const timeline = document.getElementById('timeline');
+    const notes = document.getElementById('notes');
+    const saveState = document.getElementById('saveState');
+    const dateTitle = document.getElementById('dateTitle');
+    const noteKey = 'cloudtime-apple-notes';
+
+    const now = new Date();
+    dateTitle.textContent = now.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const hours = [];
+    for (let h = 8; h <= 22; h++) {
+      const label = String(h).padStart(2, '0') + ':00';
+      hours.push(label);
+    }
+
+    function colorFor(title) {
+      return /gym|life|health/i.test(title) ? 'green' : 'blue';
+    }
+
+    function createEvent(title, hourLabel) {
+      const card = document.createElement('div');
+      card.className = 'event ' + colorFor(title);
+      card.innerHTML = '<strong>' + title + '</strong><span>' + hourLabel + ' - ' + String(Number(hourLabel.slice(0, 2)) + 1).padStart(2, '0') + ':00</span>';
+      return card;
+    }
+
+    function rowTemplate(label) {
+      const row = document.createElement('div');
+      row.className = 'time-row';
+      row.dataset.hour = label;
+      row.innerHTML =
+        '<div class="label">' + label + '</div>' +
+        '<div class="slot"><div class="line"></div></div>';
+
+      row.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        row.classList.add('drop-target');
+      });
+
+      row.addEventListener('dragleave', () => row.classList.remove('drop-target'));
+
+      row.addEventListener('drop', (e) => {
+        e.preventDefault();
+        row.classList.remove('drop-target');
+        const title = e.dataTransfer.getData('text/plain');
+        if (!title) return;
+        const slot = row.querySelector('.slot');
+        const line = slot.querySelector('.line');
+        if (line) line.remove();
+        slot.appendChild(createEvent(title, label));
+      });
+
+      return row;
+    }
+
+    hours.forEach((label) => timeline.appendChild(rowTemplate(label)));
+
+    document.querySelectorAll('.todo-card').forEach((card) => {
+      card.addEventListener('dragstart', (e) => {
+        card.classList.add('dragging');
+        e.dataTransfer.setData('text/plain', card.dataset.title || card.textContent.trim());
+      });
+      card.addEventListener('dragend', () => card.classList.remove('dragging'));
+    });
+
+    notes.value = localStorage.getItem(noteKey) || '';
+    let timer = null;
+
+    notes.addEventListener('input', () => {
+      saveState.textContent = 'Autosave on · Saving...';
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        localStorage.setItem(noteKey, notes.value);
+        saveState.textContent = 'Autosave on · Saved';
+      }, 260);
+    });
+  </script>
+</body>
+</html>
+

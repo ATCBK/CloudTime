@@ -35,3 +35,11 @@ export function pointerToSnappedRange(
   const snappedStart = snapToStep(rawMinute, stepMinutes);
   return boundRange(snappedStart, durationMinutes, totalMinutes);
 }
+
+export function resizeTopEdge(snappedPointer: number, fixedEnd: number, minDuration: number): number {
+  return Math.max(0, Math.min(fixedEnd - minDuration, snappedPointer));
+}
+
+export function resizeBottomEdge(snappedPointer: number, fixedStart: number, minDuration: number, totalMinutes: number): number {
+  return Math.min(totalMinutes, Math.max(fixedStart + minDuration, snappedPointer));
+}

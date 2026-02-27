@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CloudTime Preview From 1.pen</title>
+  <style>
+    :root {
+      --bg-page: #f3f4f7;
+      --bg-surface: #ffffff;
+      --bg-soft: #f6f7fa;
+      --text-strong: #14171c;
+      --text-mid: #2a2f36;
+      --text-subtle: #6f7680;
+      --line: #e6e9ef;
+      --radius-lg: 18px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+      --shadow: 0 8px 26px rgba(20, 23, 28, 0.08);
+      --font: "SF Pro Display", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; font-family: var(--font); color: var(--text-strong); background: var(--bg-page); }
+    .app {
+      width: min(1440px, 100vw);
+      min-height: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      gap: 16px;
+      grid-template-rows: auto 1fr;
+    }
+
+    .top-bar {
+      background: var(--bg-surface);
+      border-radius: 16px;
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 320px minmax(220px, 1fr) 320px;
+      gap: 12px;
+      align-items: center;
+      box-shadow: var(--shadow);
+    }
+
+    .cluster { display: flex; gap: 8px; align-items: center; }
+    .btn {
+      border: 0;
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      background: #eff1f5;
+      color: #3a3f45;
+      font: 600 13px var(--font);
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .btn.dark { background: #111318; color: #fff; font-weight: 600; }
+    .btn.icon { width: 72px; font-size: 16px; font-weight: 600; }
+    .title { font-size: 22px; font-weight: 700; }
+
+    .main {
+      display: grid;
+      grid-template-columns: 280px minmax(560px, 1fr) 320px;
+      gap: 16px;
+      min-height: 0;
+    }
+
+    .panel {
+      background: var(--bg-surface);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      min-height: 0;
+      display: grid;
+      align-content: start;
+      gap: 12px;
+    }
+
+    .panel h2 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .sub { margin: 0; color: #7a818a; font-size: 12px; font-weight: 600; }
+
+    .group {
+      background: var(--bg-soft);
+      border-radius: 12px;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .group-title { font-size: 14px; font-weight: 700; color: #1b1f25; }
+    .todo {
+      height: 42px;
+      border-radius: var(--radius-sm);
+      background: #fff;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      color: var(--text-mid);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .axis-wrap {
+      background: #f8f9fc;
+      border-radius: var(--radius-md);
+      padding: 12px;
+      display: grid;
+      gap: 6px;
+      min-height: 0;
+    }
+    .row {
+      height: 36px;
+      display: grid;
+      grid-template-columns: 50px 1fr;
+      align-items: center;
+      gap: 10px;
+    }
+    .row .time {
+      font-size: 12px;
+      color: var(--text-subtle);
+      font-weight: 600;
+    }
+    .row .line {
+      height: 1px;
+      background: var(--line);
+    }
+    .task-block {
+      border-radius: 12px;
+      padding: 10px;
+      display: grid;
+      gap: 4px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .task-block .time { font-size: 12px; font-weight: 500; }
+    .task-blue { background: #dcebff; color: #173a6a; }
+    .task-blue .time { color: #2c558b; }
+    .task-green { background: #e3f6e9; color: #1c5b36; }
+    .task-green .time { color: #2a7246; }
+
+    .save-state {
+      height: 34px;
+      border-radius: var(--radius-sm);
+      background: #f3f5f8;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      color: #5e6670;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .notes-input {
+      background: #fafbfd;
+      border-radius: 12px;
+      min-height: 0;
+      height: 100%;
+      padding: 12px;
+      color: #4b535d;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    @media (max-width: 1200px) {
+      .top-bar { grid-template-columns: 1fr; }
+      .main { grid-template-columns: 1fr; }
+      .panel { min-height: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="top-bar">
+      <div class="cluster">
+        <button class="btn icon">&lt;</button>
+        <button class="btn dark" style="width:96px;">Today</button>
+        <button class="btn icon">&gt;</button>
+      </div>
+      <div class="title">Thursday, February 27</div>
+      <div class="cluster" style="justify-self:end;">
+        <button class="btn" style="width:88px;">Search</button>
+        <button class="btn" style="width:88px;">Filter</button>
+        <button class="btn dark" style="width:120px;">+ New Task</button>
+      </div>
+    </section>
+
+    <section class="main">
+      <aside class="panel">
+        <h2>Inbox</h2>
+        <p class="sub">Project Groups</p>
+
+        <section class="group">
+          <div class="group-title">Work</div>
+          <div class="todo">Finalize roadmap 1h</div>
+          <div class="todo">Client sync prep 1h</div>
+        </section>
+
+        <section class="group">
+          <div class="group-title">Study</div>
+          <div class="todo">Read AI paper 1h</div>
+        </section>
+
+        <section class="group">
+          <div class="group-title">Life</div>
+          <div class="todo">Gym session 1h</div>
+        </section>
+      </aside>
+
+      <section class="panel">
+        <h2>Timeline 08:00-22:00</h2>
+        <p class="sub" style="font-weight:500;">Drag tasks from Inbox into hourly slots</p>
+
+        <div class="axis-wrap">
+          <div class="row"><span class="time">08:00</span><span class="line"></span></div>
+          <div class="row"><span class="time">09:00</span><span class="line"></span></div>
+          <div class="row"><span class="time">10:00</span><span class="line"></span></div>
+          <article class="task-block task-blue">
+            <div>Finalize roadmap</div>
+            <div class="time">10:00 - 11:00</div>
+          </article>
+          <div class="row"><span class="time">11:00</span><span class="line"></span></div>
+          <div class="row"><span class="time">12:00</span><span class="line"></span></div>
+          <article class="task-block task-green">
+            <div>Gym session</div>
+            <div class="time">18:00 - 19:00</div>
+          </article>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <h2>Notes</h2>
+        <div class="save-state">Autosave on · Saved</div>
+        <div class="notes-input">Write your focus notes here...
+
+- Keep it short
+- Capture decisions
+- Next action</div>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>

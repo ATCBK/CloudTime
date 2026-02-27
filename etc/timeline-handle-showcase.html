@@ -1,0 +1,260 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Timeline Handle Showcase</title>
+  <style>
+    :root {
+      --bg: #f3f5fa;
+      --card: #dfe5f4;
+      --line: #b8c5e7;
+      --text: #1f3f8f;
+      --muted: #4e66a8;
+      --accent: #4f78d8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px;
+    }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .toolbar button {
+      border: 1px solid #9db0dd;
+      background: white;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .demo {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      padding: 12px;
+    }
+    .demo h3 {
+      margin: 0 0 10px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .card {
+      position: relative;
+      height: 78px;
+      border: 1px solid var(--line);
+      border-left: 4px solid #6688da;
+      border-radius: 12px;
+      background: var(--card);
+      overflow: hidden;
+    }
+    .card.dragging { box-shadow: none; }
+    .content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 0 116px 0 18px;
+      gap: 2px;
+    }
+    .title { font-size: 16px; font-weight: 700; }
+    .time { font-size: 13px; color: var(--muted); }
+    .actions {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      gap: 8px;
+    }
+    .dot {
+      width: 30px;
+      height: 30px;
+      border: 1px solid #aebfe8;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      color: #5a72ae;
+      background: #ecf1ff;
+    }
+
+    .handle {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 18px;
+      border-radius: 12px 0 0 12px;
+      opacity: 0;
+      transition: opacity 120ms ease, background-color 120ms ease;
+    }
+    .card.dragging .handle { opacity: 1; background: rgba(79,120,216,0.14); }
+
+    /* 1. 竖条握柄 */
+    .h-bar::before {
+      content: "";
+      position: absolute;
+      left: 7px;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      border-radius: 0;
+      background: rgba(31,63,143,0.45);
+    }
+
+    /* 2. 短横纹握柄 */
+    .h-ribs::before {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: 0;
+      width: 10px;
+      height: 100%;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(31,63,143,0.48) 0,
+        rgba(31,63,143,0.48) 2px,
+        transparent 2px,
+        transparent 5px
+      );
+      border-radius: 0;
+    }
+
+    /* 3. 左侧色带 */
+    .h-strip {
+      width: 12px;
+      border-radius: 12px 0 0 12px;
+    }
+    .h-strip::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, #7fa0ef, #4f78d8);
+      opacity: 0.6;
+    }
+    .card.dragging .h-strip::before { opacity: 1; }
+
+    /* 4. 图标型 */
+    .h-icon::before {
+      content: "↕";
+      position: absolute;
+      left: 1px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 13px;
+      color: rgba(31,63,143,0.62);
+    }
+
+    /* 5. 仅阴影 */
+    .h-shadow {
+      width: 14px;
+      border-radius: 12px 0 0 12px;
+      background: transparent;
+      box-shadow: inset -6px 0 10px rgba(79, 120, 216, 0.22);
+    }
+    .card.dragging .h-shadow {
+      box-shadow: inset -8px 0 12px rgba(79, 120, 216, 0.34);
+    }
+
+    .hint {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #5a72ae;
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button id="toggle">切换拖拽态（全部）</button>
+    <span>当前是预览页，不影响主项目代码。</span>
+  </div>
+
+  <div class="grid">
+    <section class="demo">
+      <h3>方案 1：竖条握柄（推荐）</h3>
+      <article class="card" data-card>
+        <span class="handle h-bar" aria-hidden="true"></span>
+        <div class="content">
+          <div class="title">上线项目</div>
+          <div class="time">15:30 - 16:45</div>
+        </div>
+        <div class="actions"><span class="dot">👁</span><span class="dot">✎</span><span class="dot">✓</span><span class="dot">×</span></div>
+      </article>
+      <div class="hint">视觉最干净，信息区干扰最小。</div>
+    </section>
+
+    <section class="demo">
+      <h3>方案 2：短横纹握柄</h3>
+      <article class="card" data-card>
+        <span class="handle h-ribs" aria-hidden="true"></span>
+        <div class="content">
+          <div class="title">评审会议</div>
+          <div class="time">16:00 - 16:30</div>
+        </div>
+        <div class="actions"><span class="dot">👁</span><span class="dot">✎</span><span class="dot">✓</span><span class="dot">×</span></div>
+      </article>
+      <div class="hint">比点阵更规整，拖拽暗示更强。</div>
+    </section>
+
+    <section class="demo">
+      <h3>方案 3：左侧色带手柄</h3>
+      <article class="card" data-card>
+        <span class="handle h-strip" aria-hidden="true"></span>
+        <div class="content">
+          <div class="title">客户沟通</div>
+          <div class="time">17:15 - 18:00</div>
+        </div>
+        <div class="actions"><span class="dot">👁</span><span class="dot">✎</span><span class="dot">✓</span><span class="dot">×</span></div>
+      </article>
+      <div class="hint">品牌感强，拖拽时识别明显。</div>
+    </section>
+
+    <section class="demo">
+      <h3>方案 4：图标型手柄</h3>
+      <article class="card" data-card>
+        <span class="handle h-icon" aria-hidden="true"></span>
+        <div class="content">
+          <div class="title">数据整理</div>
+          <div class="time">18:30 - 19:30</div>
+        </div>
+        <div class="actions"><span class="dot">👁</span><span class="dot">✎</span><span class="dot">✓</span><span class="dot">×</span></div>
+      </article>
+      <div class="hint">语义明确，但图标感最重。</div>
+    </section>
+
+    <section class="demo">
+      <h3>方案 5：仅阴影手柄</h3>
+      <article class="card" data-card>
+        <span class="handle h-shadow" aria-hidden="true"></span>
+        <div class="content">
+          <div class="title">发布检查</div>
+          <div class="time">19:30 - 20:00</div>
+        </div>
+        <div class="actions"><span class="dot">👁</span><span class="dot">✎</span><span class="dot">✓</span><span class="dot">×</span></div>
+      </article>
+      <div class="hint">只通过左侧内阴影提示可拖拽，视觉最克制。</div>
+    </section>
+  </div>
+
+  <script>
+    const cards = Array.from(document.querySelectorAll('[data-card]'));
+    document.getElementById('toggle')?.addEventListener('click', () => {
+      cards.forEach((card) => card.classList.toggle('dragging'));
+    });
+  </script>
+</body>
+</html>

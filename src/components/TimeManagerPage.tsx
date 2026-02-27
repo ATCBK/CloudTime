@@ -1,16 +1,18 @@
 ﻿import { ClipboardEvent as ReactClipboardEvent, DragEvent, MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bold, Check, Eye, EyeOff, GripVertical, Italic, Link2, List, RotateCcw, Trash2, X } from "lucide-react";
+import { Bold, Check, ChevronLeft, ChevronRight, Eye, EyeOff, Italic, Link2, List, Pencil, RotateCcw, Trash2, X } from "lucide-react";
 import { TimelineItem, TodoItem } from "../types";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { hasLightNoteContent, resolveInitialLightNoteHtml, sanitizeLightNoteHtml } from "./lightNoteRichText";
 import { buildTaskReferenceDropHtml, scheduleToTodoCandidate, toggleTodoCompleted } from "./timeManagerActions";
-import { boundRange, computeAutoScrollDelta, pointerToSnappedRange, snapToStep } from "./timeDragMath";
+import { boundRange, computeAutoScrollDelta, pointerToSnappedRange, resizeBottomEdge, resizeTopEdge, snapToStep } from "./timeDragMath";
 import { buildQuickPanelItems, removeTodoAfterSchedule } from "./quickPanelState";
 import { buildHourSlots24, computeMinuteOfDay, computeMsUntilNextMidnight, computeMsUntilTodayRecycle, computeNowLineTop, isSameDateKey, isValidDateKey, toggleWeekExpandedDate } from "./timeManagerClock";
 import { computeLaneWidth, computeTimelineUsableWidth } from "./timelineLayout";
+import { getTimelineCardDensity } from "./timelineCardLayout";
 import { getGreetingLabel } from "./timeManagerTheme";
 import { canCreateTodo, removeScheduleWithSnapshot, undoRemovedSchedule } from "./timeManagerSafety";
 import { markdownPlainTextToSanitizedHtml, shouldPreferMarkdownPlainText } from "./pasteMarkdownAdapter";
+import { buildTodoTypesFromTodos, canCreateTodoType, DEFAULT_TODO_TYPE, normalizeTodoType } from "./todoTypeModel";
 
 interface TimeManagerPageProps {
   todos: TodoItem[];
@@ -36,11 +38,14 @@ interface PositionedTimelineItem extends ScheduledItem {
   laneCount: number;
 }
 
+type ResizeEdge = "top" | "bottom";
+
 const HOURS = buildHourSlots24();
 const START_HOUR = 0;
 const PIXELS_PER_HOUR = 56;
 const TOTAL_MINUTES = HOURS.length * 60;
 const MIN_ITEM_MINUTES = 15;
+const MIN_RESIZE_MINUTES = 30;
 const MIN_CARD_WIDTH = 120;
 const MIN_LEFT_PANE = 18;
 const MIN_MIDDLE_PANE = 34;
@@ -169,6 +174,15 @@ function layoutWithLanes(items: ScheduledItem[]): PositionedTimelineItem[] {
   return result;
 }
 
+function areStringListsEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((item, index) => item === b[index]);
+}
+
+function computeDurationMinutesFromSchedule(item: ScheduledItem): number {
+  return Math.max(MIN_ITEM_MINUTES, toMinutes(item.endHour, item.endMinute) - toMinutes(item.startHour, item.startMinute));
+}
+
 export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps): JSX.Element {
   const initialNow = useMemo(() => new Date(), []);
   const [currentDateKey, setCurrentDateKey] = useState<string>(formatDateKey(initialNow));
@@ -180,8 +194,15 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
   const [todosState, setTodosState] = useLocalStorageState<TodoItem[]>("cloudo.time.todos", todos);
   const [newTodoTitle, setNewTodoTitle] = useState<string>("");
   const [newTodoDetail, setNewTodoDetail] = useState<string>("");
-  const [newTodoProject, setNewTodoProject] = useLocalStorageState<string>("cloudo.time.newTodoProject", "默认项目");
+  const [newTodoType, setNewTodoType] = useLocalStorageState<string>("cloudo.time.newTodoType", DEFAULT_TODO_TYPE);
   const [newTodoDuration, setNewTodoDuration] = useLocalStorageState<number>("cloudo.time.newTodoDuration", 60);
+  const [todoTypesState, setTodoTypesState] = useLocalStorageState<string[]>("cloudo.time.todoTypes", [DEFAULT_TODO_TYPE]);
+  const [selectedTodoType, setSelectedTodoType] = useLocalStorageState<string>("cloudo.time.selectedTodoType", DEFAULT_TODO_TYPE);
+  const [showCreateTodoModal, setShowCreateTodoModal] = useState<boolean>(false);
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
+  const [showCreateTypeInline, setShowCreateTypeInline] = useState<boolean>(false);
+  const [newTypeName, setNewTypeName] = useState<string>("");
+  const [newTypeError, setNewTypeError] = useState<string | null>(null);
 
   const [scheduledItems, setScheduledItems] = useLocalStorageState<ScheduledItem[]>("cloudo.time.scheduledItems",
     timelineItems.map((item) => ({
@@ -205,18 +226,27 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
   const [removedScheduleSnapshot, setRemovedScheduleSnapshot] = useState<ScheduledItem | null>(null);
   const [showUndoBar, setShowUndoBar] = useState<boolean>(false);
   const [pendingDeleteScheduleId, setPendingDeleteScheduleId] = useState<string | null>(null);
+  const [resizingItemId, setResizingItemId] = useState<string | null>(null);
+  const [pendingCompleteScheduleId, setPendingCompleteScheduleId] = useState<string | null>(null);
 
   const paneRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const resizingRef = useRef<{ divider: 0 | 1; startX: number; start: PaneWidths } | null>(null);
   const moveTaskRef = useRef<{ itemId: string; offsetMinutes: number; durationMinutes: number } | null>(null);
+  const resizeTaskRef = useRef<{ itemId: string; edge: ResizeEdge; fixedMinute: number } | null>(null);
   const lightNoteEditorRef = useRef<HTMLDivElement>(null);
   const quickCreateTitleRef = useRef<HTMLInputElement>(null);
   const undoTimerRef = useRef<number | null>(null);
+  const completeConfirmTimerRef = useRef<number | null>(null);
 
   const selectedDate = useMemo(() => parseDateKey(selectedDateKey), [selectedDateKey]);
   const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
   const monthDates = useMemo(() => getMonthGrid(selectedDate), [selectedDate]);
+  const todoTypes = useMemo(() => buildTodoTypesFromTodos(todosState, todoTypesState), [todoTypesState, todosState]);
+  const selectedTypeTodos = useMemo(
+    () => todosState.filter((todo) => normalizeTodoType(todo.project) === selectedTodoType),
+    [selectedTodoType, todosState]
+  );
 
   const todosById = useMemo(() => new Map(todosState.map((todo) => [todo.id, todo])), [todosState]);
   const selectedDateItems = useMemo(
@@ -229,6 +259,17 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     () => (pendingDeleteScheduleId ? scheduledItems.find((item) => item.id === pendingDeleteScheduleId) ?? null : null),
     [pendingDeleteScheduleId, scheduledItems]
   );
+  const isEditingTodo = Boolean(editingTodoId);
+
+  useEffect(() => {
+    if (!areStringListsEqual(todoTypesState, todoTypes)) setTodoTypesState(todoTypes);
+  }, [setTodoTypesState, todoTypes, todoTypesState]);
+
+  useEffect(() => {
+    if (!todoTypes.includes(selectedTodoType)) {
+      setSelectedTodoType(DEFAULT_TODO_TYPE);
+    }
+  }, [selectedTodoType, setSelectedTodoType, todoTypes]);
 
   useEffect(() => {
     if (lightNoteHtml.trim()) return;
@@ -309,6 +350,10 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
 
   useEffect(() => {
     const focusCreate = (): void => {
+      setEditingTodoId(null);
+      setShowCreateTodoModal(true);
+      const preferredType = todoTypes.includes(selectedTodoType) ? selectedTodoType : DEFAULT_TODO_TYPE;
+      setNewTodoType(preferredType);
       requestAnimationFrame(() => {
         quickCreateTitleRef.current?.focus();
       });
@@ -320,11 +365,12 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     return () => {
       window.removeEventListener("cloudo:focusQuickCreate", onCustomFocus);
     };
-  }, []);
+  }, [selectedTodoType, setNewTodoType, todoTypes]);
 
   useEffect(() => {
     return () => {
       if (undoTimerRef.current !== null) window.clearTimeout(undoTimerRef.current);
+      if (completeConfirmTimerRef.current !== null) window.clearTimeout(completeConfirmTimerRef.current);
     };
   }, []);
 
@@ -336,6 +382,18 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [pendingDeleteScheduleId]);
+
+  useEffect(() => {
+    if (!showCreateTodoModal) return;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        setShowCreateTodoModal(false);
+        setEditingTodoId(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showCreateTodoModal]);
 
   const scrollTimelineToMinute = useCallback((minuteOfDay: number, behavior: ScrollBehavior = "smooth"): void => {
     if (!timelineRef.current) return;
@@ -522,6 +580,59 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
   }, []);
 
   useEffect(() => {
+    const onMouseMove = (event: MouseEvent): void => {
+      if (!resizeTaskRef.current || !timelineRef.current) return;
+
+      const timelineRect = timelineRef.current.getBoundingClientRect();
+      const pointerY = event.clientY - timelineRect.top;
+      const autoScroll = computeAutoScrollDelta(pointerY, timelineRect.height, AUTO_SCROLL_EDGE, AUTO_SCROLL_SPEED);
+      if (autoScroll !== 0) {
+        const maxScrollTop = Math.max(0, timelineRef.current.scrollHeight - timelineRef.current.clientHeight);
+        timelineRef.current.scrollTop = Math.max(0, Math.min(maxScrollTop, timelineRef.current.scrollTop + autoScroll));
+      }
+
+      const relativeY = event.clientY - timelineRect.top + timelineRef.current.scrollTop;
+      const pointerMinute = snapToStep(
+        Math.round((Math.max(0, Math.min(relativeY, HOURS.length * PIXELS_PER_HOUR)) / PIXELS_PER_HOUR) * 60),
+        SNAP_MINUTES
+      );
+
+      const { itemId, edge, fixedMinute } = resizeTaskRef.current;
+      setScheduledItems((prev) =>
+        prev.map((item) => {
+          if (item.id !== itemId) return item;
+          const startMinute = toMinutes(item.startHour, item.startMinute);
+          const endMinute = toMinutes(item.endHour, item.endMinute);
+          if (edge === "top") {
+            const nextStart = resizeTopEdge(pointerMinute, fixedMinute, MIN_RESIZE_MINUTES);
+            const startClock = toClock(nextStart);
+            const endClock = toClock(endMinute);
+            return { ...item, startHour: startClock.hour, startMinute: startClock.minute, endHour: endClock.hour, endMinute: endClock.minute };
+          }
+          const nextEnd = resizeBottomEdge(pointerMinute, fixedMinute, MIN_RESIZE_MINUTES, TOTAL_MINUTES);
+          const startClock = toClock(startMinute);
+          const endClock = toClock(nextEnd);
+          return { ...item, startHour: startClock.hour, startMinute: startClock.minute, endHour: endClock.hour, endMinute: endClock.minute };
+        })
+      );
+    };
+
+    const onMouseUp = (): void => {
+      if (!resizeTaskRef.current) return;
+      resizeTaskRef.current = null;
+      setResizingItemId(null);
+      document.body.classList.remove("moving-task-active");
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [setScheduledItems]);
+
+  useEffect(() => {
     if (calendarView !== "day") return;
     if (!timelineRef.current) return;
 
@@ -551,15 +662,42 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     document.body.classList.add("resizing-active");
   };
 
-  const addTodo = (): void => {
+  const closeTodoModal = (): void => {
+    setShowCreateTodoModal(false);
+    setEditingTodoId(null);
+  };
+
+  const submitTodo = (): void => {
     const title = newTodoTitle.trim();
     if (!canCreateTodo(title)) return;
     const details = newTodoDetail.trim();
+    const todoType = normalizeTodoType(newTodoType);
+    if (editingTodoId) {
+      const durationMinutes = Math.max(15, newTodoDuration);
+      setTodosState((prev) =>
+        prev.map((todo) =>
+          todo.id === editingTodoId
+            ? { ...todo, title, project: todoType, durationMinutes, details }
+            : todo
+        )
+      );
+      setScheduledItems((prev) =>
+        prev.map((item) =>
+          item.todoId === editingTodoId
+            ? { ...item, title, project: todoType, details }
+            : item
+        )
+      );
+      setNewTodoTitle("");
+      setNewTodoDetail("");
+      closeTodoModal();
+      return;
+    }
     setTodosState((prev) => [
       {
         id: generateId(),
         title,
-        project: newTodoProject.trim() || "默认项目",
+        project: todoType,
         durationMinutes: Math.max(15, newTodoDuration),
         details,
         completed: false
@@ -568,6 +706,66 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     ]);
     setNewTodoTitle("");
     setNewTodoDetail("");
+    closeTodoModal();
+  };
+
+  const openCreateTodoModal = (): void => {
+    setEditingTodoId(null);
+    setNewTodoTitle("");
+    setNewTodoDetail("");
+    const preferredType = todoTypes.includes(selectedTodoType) ? selectedTodoType : DEFAULT_TODO_TYPE;
+    setNewTodoType(preferredType);
+    setShowCreateTodoModal(true);
+    requestAnimationFrame(() => quickCreateTitleRef.current?.focus());
+  };
+
+  const openEditTodoModal = (todoId: string): void => {
+    const target = todosById.get(todoId);
+    if (!target) return;
+    setEditingTodoId(todoId);
+    setNewTodoTitle(target.title);
+    setNewTodoDetail(target.details ?? "");
+    setNewTodoType(normalizeTodoType(target.project));
+    setNewTodoDuration(Math.max(15, target.durationMinutes));
+    setShowCreateTodoModal(true);
+    requestAnimationFrame(() => quickCreateTitleRef.current?.focus());
+  };
+
+  const openEditTodoModalFromSchedule = (scheduleId: string): void => {
+    const current = scheduledItems.find((item) => item.id === scheduleId);
+    if (!current) return;
+    const linked = todosById.get(current.todoId);
+    setEditingTodoId(current.todoId);
+    setNewTodoTitle(linked?.title ?? current.title);
+    setNewTodoDetail(linked?.details ?? current.details ?? "");
+    setNewTodoType(normalizeTodoType(linked?.project ?? current.project));
+    setNewTodoDuration(linked?.durationMinutes ?? computeDurationMinutesFromSchedule(current));
+    setShowCreateTodoModal(true);
+    requestAnimationFrame(() => quickCreateTitleRef.current?.focus());
+  };
+
+  const shiftTodoType = (delta: -1 | 1): void => {
+    if (todoTypes.length === 0) return;
+    const index = Math.max(0, todoTypes.findIndex((type) => type === selectedTodoType));
+    const nextIndex = Math.max(0, Math.min(todoTypes.length - 1, index + delta));
+    const nextType = todoTypes[nextIndex] ?? DEFAULT_TODO_TYPE;
+    setSelectedTodoType(nextType);
+  };
+
+  const createTodoType = (): void => {
+    const result = canCreateTodoType(newTypeName, todoTypes);
+    if (!result.ok) {
+      if (result.reason === "empty") setNewTypeError("类型名不能为空");
+      if (result.reason === "duplicate") setNewTypeError("该类型已存在");
+      if (result.reason === "too_long") setNewTypeError("类型名最多20个字符");
+      return;
+    }
+    setTodoTypesState((prev) => [...prev, result.value]);
+    setSelectedTodoType(result.value);
+    setNewTodoType(result.value);
+    setNewTypeName("");
+    setNewTypeError(null);
+    setShowCreateTypeInline(false);
   };
 
   const toggleTodo = (id: string): void => {
@@ -700,16 +898,6 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     setDropPreview(null);
   };
 
-  const handleScheduleDragStart = (event: DragEvent<HTMLButtonElement>, item: ScheduledItem): void => {
-    event.dataTransfer.setData("application/x-cloudo-schedule-id", item.id);
-    event.dataTransfer.effectAllowed = "copyMove";
-    setDraggingScheduleId(item.id);
-  };
-
-  const handleScheduleDragEnd = (): void => {
-    setDraggingScheduleId(null);
-  };
-
   const dropScheduleToTodoPool = (event: DragEvent<HTMLElement>): void => {
     event.preventDefault();
     const scheduleId = event.dataTransfer.getData("application/x-cloudo-schedule-id") || draggingScheduleId;
@@ -765,7 +953,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     setDraggingScheduleId(null);
   };
 
-  const handleTimelineItemMouseDown = (event: ReactMouseEvent<HTMLElement>, item: ScheduledItem): void => {
+  const handleTimelineMoveHandleMouseDown = (event: ReactMouseEvent<HTMLElement>, item: ScheduledItem): void => {
     if (!timelineRef.current) return;
     event.preventDefault();
     event.stopPropagation();
@@ -784,6 +972,54 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     };
     setMovingItemId(item.id);
     document.body.classList.add("moving-task-active");
+  };
+
+  const handleTimelineResizeMouseDown = (event: ReactMouseEvent<HTMLElement>, item: ScheduledItem, edge: ResizeEdge): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    const startMinute = toMinutes(item.startHour, item.startMinute);
+    const endMinute = toMinutes(item.endHour, item.endMinute);
+    resizeTaskRef.current = {
+      itemId: item.id,
+      edge,
+      fixedMinute: edge === "top" ? endMinute : startMinute
+    };
+    setResizingItemId(item.id);
+    document.body.classList.add("moving-task-active");
+  };
+
+  const toggleScheduleCompleted = (scheduleId: string): void => {
+    const target = scheduledItems.find((item) => item.id === scheduleId);
+    if (!target) return;
+    const currentCompleted = target.completed ?? false;
+    if (currentCompleted) {
+      setScheduledItems((prev) => prev.map((item) => (item.todoId === target.todoId ? { ...item, completed: false } : item)));
+      setTodosState((prev) => prev.map((todo) => (todo.id === target.todoId ? { ...todo, completed: false } : todo)));
+      setPendingCompleteScheduleId(null);
+      if (completeConfirmTimerRef.current !== null) {
+        window.clearTimeout(completeConfirmTimerRef.current);
+        completeConfirmTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (pendingCompleteScheduleId !== scheduleId) {
+      setPendingCompleteScheduleId(scheduleId);
+      if (completeConfirmTimerRef.current !== null) window.clearTimeout(completeConfirmTimerRef.current);
+      completeConfirmTimerRef.current = window.setTimeout(() => {
+        setPendingCompleteScheduleId(null);
+        completeConfirmTimerRef.current = null;
+      }, 1200);
+      return;
+    }
+
+    setScheduledItems((prev) => prev.map((item) => (item.todoId === target.todoId ? { ...item, completed: true } : item)));
+    setTodosState((prev) => prev.map((todo) => (todo.id === target.todoId ? { ...todo, completed: true } : todo)));
+    setPendingCompleteScheduleId(null);
+    if (completeConfirmTimerRef.current !== null) {
+      window.clearTimeout(completeConfirmTimerRef.current);
+      completeConfirmTimerRef.current = null;
+    }
   };
 
   const removeSchedule = (scheduleId: string): void => {
@@ -850,38 +1086,71 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
           onDragOver={(event) => event.preventDefault()}
           onDrop={dropScheduleToTodoPool}
         >
-          <div className="panel-title-row">
-            <h3>快速添加任务</h3>
-          </div>
-
-          <div className="todo-create-form">
-            <input ref={quickCreateTitleRef} value={newTodoTitle} onChange={(e) => setNewTodoTitle(e.target.value)} placeholder="例如：完成开发日报" />
-            <input value={newTodoProject} onChange={(e) => setNewTodoProject(e.target.value)} placeholder="项目（如：默认项目）" />
-            <input
-              type="number"
-              min={15}
-              step={15}
-              value={newTodoDuration}
-              onChange={(e) => setNewTodoDuration(Number(e.target.value) || 60)}
-              placeholder="时长（分钟，如45）"
-            />
-            <textarea value={newTodoDetail} onChange={(e) => setNewTodoDetail(e.target.value)} placeholder="详情（可选）" />
-            <button className="accent-btn" type="button" onClick={addTodo} disabled={!canCreateTodo(newTodoTitle)}>新建待办</button>
-          </div>
-
-          <div className="tm-subtitle-row">
+          <div className="tm-todo-header">
             <h3>待办池</h3>
-            <span>{todosState.length} 个任务</span>
+            <span className="tm-todo-count">{selectedTodoType} · {selectedTypeTodos.length}/{todosState.length}</span>
+            <button type="button" className="tm-primary-btn" onClick={openCreateTodoModal}>+ 新建任务</button>
           </div>
 
-          {todosState.length === 0 ? (
+          <div className="tm-todo-controls">
+            <div className="tm-type-rail">
+              <button type="button" className="tm-rail-icon-btn" aria-label="上一类型" onClick={() => shiftTodoType(-1)}>
+                <ChevronLeft size={14} />
+              </button>
+              <div className="tm-type-current">
+                <button type="button" className="tm-type-chip active" onClick={() => setSelectedTodoType(selectedTodoType)}>
+                  {selectedTodoType}
+                </button>
+              </div>
+              <button type="button" className="tm-rail-icon-btn" aria-label="下一类型" onClick={() => shiftTodoType(1)}>
+                <ChevronRight size={14} />
+              </button>
+              <button
+                type="button"
+                className="tm-add-type-btn"
+                aria-label="新建类型"
+                title="新建类型"
+                onClick={() => { setShowCreateTypeInline((prev) => !prev); setNewTypeError(null); }}
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          {showCreateTypeInline ? (
+            <div className="tm-type-create-row">
+              <input
+                value={newTypeName}
+                onChange={(event) => {
+                  setNewTypeName(event.target.value);
+                  setNewTypeError(null);
+                }}
+                placeholder="输入类型名"
+              />
+              <button type="button" className="tm-ghost-btn" onClick={createTodoType}>确认</button>
+              <button
+                type="button"
+                className="tm-ghost-btn"
+                onClick={() => {
+                  setShowCreateTypeInline(false);
+                  setNewTypeName("");
+                  setNewTypeError(null);
+                }}
+              >
+                取消
+              </button>
+            </div>
+          ) : null}
+          {newTypeError ? <p className="tm-type-create-error">{newTypeError}</p> : null}
+
+          {selectedTypeTodos.length === 0 ? (
             <div className="tm-empty-state">
-              <p>暂无待办，先创建一条今天要完成的任务。</p>
-              <button type="button" className="tiny-btn" onClick={() => quickCreateTitleRef.current?.focus()}>去创建</button>
+              <p>当前类型暂无待办，先创建一条任务。</p>
+              <button type="button" className="tm-ghost-btn" onClick={openCreateTodoModal}>去创建</button>
             </div>
           ) : (
             <ul className="todo-list tm-todo-list">
-              {todosState.map((todo) => (
+              {selectedTypeTodos.map((todo) => (
               <li
                 key={todo.id}
                 className={draggingTodoId === todo.id ? "todo-card dragging" : todo.completed ? "todo-card done" : "todo-card"}
@@ -890,11 +1159,14 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
                 onDragEnd={handleTodoDragEnd}
               >
                 <p className="todo-title">{todo.title}</p>
-                <p className="todo-meta">{todo.project}</p>
+                <p className="todo-meta">{normalizeTodoType(todo.project)}</p>
                 <p className="todo-meta">{todo.durationMinutes} 分钟</p>
                 <div className="todo-actions">
                   <button type="button" title={todo.completed ? "恢复" : "完成"} onClick={() => toggleTodo(todo.id)}>
                     {todo.completed ? <RotateCcw size={14} /> : <Check size={14} />}
+                  </button>
+                  <button type="button" title="编辑" onClick={() => openEditTodoModal(todo.id)}>
+                    <Pencil size={14} />
                   </button>
                   <button
                     type="button"
@@ -948,19 +1220,38 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
                 const start = toMinutes(item.startHour, item.startMinute);
                 const end = toMinutes(item.endHour, item.endMinute);
                 const laneWidth = computeLaneWidth(timelineUsableWidth, item.laneCount, LANE_GAP, MIN_CARD_WIDTH);
+                const durationMinutes = Math.max(MIN_ITEM_MINUTES, end - start);
+                const densityClass = getTimelineCardDensity(durationMinutes);
+                const motionClass = movingItemId === item.id || resizingItemId === item.id ? "moving" : "";
+                const doneClass = item.completed ? "done" : "";
 
                 return (
                   <article
                     key={item.id}
-                    className={movingItemId === item.id ? "timeline-card moving" : "timeline-card"}
-                    onMouseDown={(event) => handleTimelineItemMouseDown(event, item)}
+                    className={`timeline-card ${densityClass} ${motionClass} ${doneClass}`.trim()}
                     style={{
                       top: `${(start / 60) * PIXELS_PER_HOUR}px`,
-                      height: `${(Math.max(MIN_ITEM_MINUTES, end - start) / 60) * PIXELS_PER_HOUR}px`,
+                      height: `${(durationMinutes / 60) * PIXELS_PER_HOUR}px`,
                       left: `${TIMELINE_PADDING + TIMELINE_LABEL_WIDTH + item.lane * (laneWidth + LANE_GAP)}px`,
                       width: `${laneWidth}px`
                     }}
                   >
+                    <div
+                      className="timeline-side-handle"
+                      title="拖动调整位置"
+                      onMouseDown={(event) => handleTimelineMoveHandleMouseDown(event, item)}
+                    >
+                      <span className="timeline-side-grip" aria-hidden="true" />
+                    </div>
+                    <button
+                      type="button"
+                      className="timeline-edit-btn"
+                      title="编辑"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={() => openEditTodoModalFromSchedule(item.id)}
+                    >
+                      <Pencil size={13} />
+                    </button>
                     <button
                       type="button"
                       className="timeline-detail-btn"
@@ -981,17 +1272,29 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
                     </button>
                     <button
                       type="button"
-                      className="timeline-drag-handle"
-                      title="拖拽到待办或轻笔记"
-                      draggable
+                      className={pendingCompleteScheduleId === item.id ? "timeline-complete-btn pending" : item.completed ? "timeline-complete-btn done" : "timeline-complete-btn"}
+                      title={item.completed ? "恢复未完成" : pendingCompleteScheduleId === item.id ? "再次点击确认完成" : "完成"}
                       onMouseDown={(e) => e.stopPropagation()}
-                      onDragStart={(event) => handleScheduleDragStart(event, item)}
-                      onDragEnd={handleScheduleDragEnd}
+                      onClick={() => toggleScheduleCompleted(item.id)}
                     >
-                      <GripVertical size={13} />
+                      <Check size={13} />
                     </button>
-                    <p className="timeline-title">{item.title}</p>
-                    <p className="timeline-meta">{formatTime(item.startHour, item.startMinute)} - {formatTime(item.endHour, item.endMinute)}</p>
+                    <button
+                      type="button"
+                      className="timeline-resize-handle top"
+                      title="拖拽调整开始时间"
+                      onMouseDown={(event) => handleTimelineResizeMouseDown(event, item, "top")}
+                    />
+                    <button
+                      type="button"
+                      className="timeline-resize-handle bottom"
+                      title="拖拽调整结束时间"
+                      onMouseDown={(event) => handleTimelineResizeMouseDown(event, item, "bottom")}
+                    />
+                    <div className="timeline-content">
+                      <p className="timeline-title">{item.title}</p>
+                      <p className="timeline-meta">{formatTime(item.startHour, item.startMinute)} - {formatTime(item.endHour, item.endMinute)}</p>
+                    </div>
                   </article>
                 );
               })}
@@ -1145,6 +1448,39 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
         </section>
       </div>
 
+      {showCreateTodoModal ? (
+        <div className="tm-create-popup-overlay" onClick={closeTodoModal}>
+          <div className="tm-create-popup-wrap" onClick={(event) => event.stopPropagation()}>
+            <div className="tm-create-popup-card">
+              <div className="tm-create-popup-copy">
+                <h3>{isEditingTodo ? "编辑待办" : "新建待办"}</h3>
+              </div>
+              <div className="todo-create-form">
+                <input ref={quickCreateTitleRef} value={newTodoTitle} onChange={(e) => setNewTodoTitle(e.target.value)} placeholder="例如：完成开发日报" />
+                <select value={newTodoType} onChange={(e) => setNewTodoType(e.target.value)} aria-label="类型">
+                  {todoTypes.map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  min={15}
+                  step={15}
+                  value={newTodoDuration}
+                  onChange={(e) => setNewTodoDuration(Number(e.target.value) || 60)}
+                  placeholder="时长（分钟，如45）"
+                />
+                <textarea value={newTodoDetail} onChange={(e) => setNewTodoDetail(e.target.value)} placeholder="详情（可选）" />
+              </div>
+              <div className="tm-create-popup-actions">
+                <button type="button" className="tiny-btn" onClick={closeTodoModal}>取消</button>
+                <button className="tiny-btn" type="button" onClick={submitTodo} disabled={!canCreateTodo(newTodoTitle)}>{isEditingTodo ? "保存" : "创建待办"}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {openedScheduleDetailId ? (
         <div className="schedule-detail-mask" onClick={() => setOpenedScheduleDetailId(null)}>
           <section className="schedule-detail-modal" onClick={(event) => event.stopPropagation()}>
@@ -1155,7 +1491,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
               return (
                 <>
                   <h3>{current.title}</h3>
-                  <p className="soft-text">{current.project}</p>
+                  <p className="soft-text">{normalizeTodoType(current.project)}</p>
                   <p className="soft-text">{formatTime(current.startHour, current.startMinute)} - {formatTime(current.endHour, current.endMinute)}</p>
                   <p className="todo-detail">{linked?.details?.trim() ? linked.details : current.details?.trim() ? current.details : "暂无详情"}</p>
                 </>
