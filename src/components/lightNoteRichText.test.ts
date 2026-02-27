@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from "vitest";
-import { markdownToBasicHtml, resolveInitialLightNoteHtml, sanitizeLightNoteHtml } from "./lightNoteRichText";
+import { hasLightNoteContent, markdownToBasicHtml, resolveInitialLightNoteHtml, sanitizeLightNoteHtml } from "./lightNoteRichText";
 
 describe("lightNoteRichText", () => {
   it("converts legacy markdown into basic html", () => {
@@ -36,5 +36,28 @@ describe("lightNoteRichText", () => {
     expect(html).toContain('data-task-id="t1"');
     expect(html).toContain('contenteditable="false"');
     expect(html).toContain('class="ln-task-title"');
+  });
+
+  it("keeps markdown task checkbox and table tags", () => {
+    const raw = '<h3>标题</h3><ul><li><input type="checkbox" checked disabled>Done</li></ul><table><thead><tr><th>A</th></tr></thead><tbody><tr><td>B</td></tr></tbody></table>';
+    const html = sanitizeLightNoteHtml(raw);
+    expect(html).toContain("<h3>标题</h3>");
+    expect(html).toContain('<input type="checkbox" disabled checked>');
+    expect(html).toContain("<table>");
+    expect(html).toContain("<thead>");
+    expect(html).toContain("<tbody>");
+  });
+
+  it("keeps empty note html empty instead of injecting default text", () => {
+    expect(sanitizeLightNoteHtml("")).toBe("");
+    expect(resolveInitialLightNoteHtml("", "")).toBe("");
+    expect(markdownToBasicHtml("")).toBe("");
+  });
+
+  it("detects whether light note has visible content", () => {
+    expect(hasLightNoteContent("")).toBe(false);
+    expect(hasLightNoteContent("<p><br></p>")).toBe(false);
+    expect(hasLightNoteContent("<p>计划A</p>")).toBe(true);
+    expect(hasLightNoteContent('<div class="ln-task-card" data-task-id="t1"></div>')).toBe(true);
   });
 });

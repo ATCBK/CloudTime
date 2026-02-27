@@ -1,4 +1,4 @@
-const ALLOWED_TAGS = new Set([
+const BASE_ALLOWED_TAGS = new Set([
   "p",
   "br",
   "strong",
@@ -17,8 +17,17 @@ const ALLOWED_TAGS = new Set([
   "h1",
   "h2",
   "h3",
-  "h4"
+  "h4",
+  "h5",
+  "h6"
 ]);
+
+interface NotesPasteSanitizeOptions {
+  preserveHeadings?: boolean;
+  allowTables?: boolean;
+  allowTaskCheckbox?: boolean;
+  disablePlainTextLineFallback?: boolean;
+}
 
 function escapeHtml(input: string): string {
   return input
@@ -67,7 +76,19 @@ function countSanitizedBlockBoundaries(html: string): number {
   return blocks + breaks;
 }
 
-export function sanitizeClipboardHtmlForNotes(html: string, plainText: string): string {
+export function sanitizeClipboardHtmlForNotes(html: string, plainText: string, options?: NotesPasteSanitizeOptions): string {
+  const preserveHeadings = options?.preserveHeadings ?? false;
+  const allowTables = options?.allowTables ?? false;
+  const allowTaskCheckbox = options?.allowTaskCheckbox ?? false;
+  const disablePlainTextLineFallback = options?.disablePlainTextLineFallback ?? false;
+  const allowedTags = new Set(BASE_ALLOWED_TAGS);
+  if (allowTables) {
+    ["table", "thead", "tbody", "tr", "th", "td"].forEach((tag) => allowedTags.add(tag));
+  }
+  if (allowTaskCheckbox) {
+    allowedTags.add("input");
+  }
+
   const source = (html || "").trim();
   if (!source) return plainTextToHtml(plainText);
 
@@ -82,10 +103,13 @@ export function sanitizeClipboardHtmlForNotes(html: string, plainText: string): 
   // Normalize common rich-text wrappers to semantic blocks to avoid content collapsing.
   out = out
     .replace(/<\s*\/?\s*(html|body|font)[^>]*>/gi, "")
-    .replace(/<\s*h[1-4][^>]*>/gi, "<p>")
-    .replace(/<\s*\/\s*h[1-4]\s*>/gi, "</p>")
     .replace(/<\s*(div|section|article|header|footer|main|aside)[^>]*>/gi, "<p>")
     .replace(/<\s*\/\s*(div|section|article|header|footer|main|aside)\s*>/gi, "</p>");
+  if (!preserveHeadings) {
+    out = out
+      .replace(/<\s*h[1-6][^>]*>/gi, "<p>")
+      .replace(/<\s*\/\s*h[1-6]\s*>/gi, "</p>");
+  }
 
   // Preserve key inline semantics from styled spans before dropping style attributes.
   out = out.replace(/<span([^>]*)>([\s\S]*?)<\/span>/gi, (_full, rawAttrs: string, inner: string) => {
@@ -110,10 +134,11 @@ export function sanitizeClipboardHtmlForNotes(html: string, plainText: string): 
   out = out.replace(/<\/?([a-zA-Z0-9]+)([^>]*)>/g, (full, rawTag: string, rawAttrs: string) => {
     const isClosing = full.startsWith("</");
     const tag = rawTag.toLowerCase();
-    if (!ALLOWED_TAGS.has(tag)) return "";
+    if (!allowedTags.has(tag)) return "";
     if (isClosing) {
       if (tag === "b") return "</strong>";
       if (tag === "i") return "</em>";
+      if (tag === "input") return "";
       return `</${tag}>`;
     }
 
@@ -126,12 +151,20 @@ export function sanitizeClipboardHtmlForNotes(html: string, plainText: string): 
       const href = normalizeHref(hrefRaw).replaceAll('"', "&quot;");
       return `<a href="${href}" target="_blank" rel="noopener noreferrer">`;
     }
+    if (tag === "input") {
+      if (!allowTaskCheckbox) return "";
+      const typeMatch = rawAttrs.match(/type\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i);
+      const typeRaw = (typeMatch ? typeMatch[2] || typeMatch[3] || typeMatch[4] || "" : "").toLowerCase();
+      if (typeRaw !== "checkbox") return "";
+      const checked = /\schecked(\s*=|\s|>|$)/i.test(rawAttrs) ? " checked" : "";
+      return `<input type="checkbox" disabled${checked}>`;
+    }
     return `<${tag}>`;
   });
 
   out = out
     .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/<(p|li|blockquote|h1|h2|h3|h4)>\s*<\/\1>/gi, "")
+    .replace(/<(p|li|blockquote|h1|h2|h3|h4|h5|h6)>\s*<\/\1>/gi, "")
     .replace(/<p>\s*(<br>\s*)+<\/p>/gi, "<p><br></p>")
     .replace(/<\/p>\s*<p>/gi, "</p><p>")
     .trim();
@@ -143,7 +176,7 @@ export function sanitizeClipboardHtmlForNotes(html: string, plainText: string): 
   // If clipboard HTML lost line/block structure, prefer stable plain-text paragraph fallback.
   const plainLines = countMeaningfulLines(plainText);
   const sanitizedBoundaries = countSanitizedBlockBoundaries(out);
-  if (plainLines >= 2 && sanitizedBoundaries < plainLines) {
+  if (!disablePlainTextLineFallback && plainLines >= 2 && sanitizedBoundaries < plainLines) {
     return plainTextToHtml(plainText);
   }
 

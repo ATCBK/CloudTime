@@ -1,4 +1,31 @@
-﻿const ALLOWED_TAGS = new Set(["p", "br", "strong", "em", "ul", "ol", "li", "a", "code", "div", "span"]);
+const ALLOWED_TAGS = new Set([
+  "p",
+  "br",
+  "strong",
+  "em",
+  "ul",
+  "ol",
+  "li",
+  "a",
+  "code",
+  "pre",
+  "blockquote",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "table",
+  "thead",
+  "tbody",
+  "tr",
+  "th",
+  "td",
+  "input",
+  "div",
+  "span"
+]);
 
 function escapeHtml(input: string): string {
   return input
@@ -63,7 +90,7 @@ export function markdownToBasicHtml(markdown: string): string {
   }
 
   closeList();
-  return html.join("\n") || "<p>开始记录今天的重要事项...</p>";
+  return html.join("\n");
 }
 
 export function sanitizeLightNoteHtml(input: string): string {
@@ -77,7 +104,10 @@ export function sanitizeLightNoteHtml(input: string): string {
     const tag = rawTag.toLowerCase();
 
     if (!ALLOWED_TAGS.has(tag)) return "";
-    if (isClosing) return `</${tag}>`;
+    if (isClosing) {
+      if (tag === "input") return "";
+      return `</${tag}>`;
+    }
     if (tag === "br") return "<br>";
 
     if (tag === "a") {
@@ -85,6 +115,14 @@ export function sanitizeLightNoteHtml(input: string): string {
       const hrefRaw = hrefMatch ? hrefMatch[2] || hrefMatch[3] || hrefMatch[4] || "" : "";
       const href = normalizeHref(hrefRaw).replaceAll('"', "&quot;");
       return `<a href="${href}" target="_blank" rel="noopener noreferrer">`;
+    }
+
+    if (tag === "input") {
+      const typeMatch = rawAttrs.match(/type\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i);
+      const typeRaw = (typeMatch ? typeMatch[2] || typeMatch[3] || typeMatch[4] || "" : "").toLowerCase();
+      if (typeRaw !== "checkbox") return "";
+      const checked = /\schecked(\s*=|\s|>|$)/i.test(rawAttrs) ? " checked" : "";
+      return `<input type="checkbox" disabled${checked}>`;
     }
 
     const classMatch = rawAttrs.match(/class\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i);
@@ -106,7 +144,7 @@ export function sanitizeLightNoteHtml(input: string): string {
     if (taskIdSafe) attrs.push(`data-task-id="${taskIdSafe}"`);
     const contentEditableMatch = rawAttrs.match(/contenteditable\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i);
     const contentEditableRaw = contentEditableMatch ? contentEditableMatch[2] || contentEditableMatch[3] || contentEditableMatch[4] || "" : "";
-    if (tag === "div" && isTaskCard && contentEditableRaw.toLowerCase() === "false") {
+    if ((tag === "div" || tag === "span") && isTaskCard && contentEditableRaw.toLowerCase() === "false") {
       attrs.push('contenteditable="false"');
     }
 
@@ -115,7 +153,7 @@ export function sanitizeLightNoteHtml(input: string): string {
   });
 
   html = html.replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-  return html.trim() || "<p>开始记录今天的重要事项...</p>";
+  return html.trim();
 }
 
 export function resolveInitialLightNoteHtml(currentHtml: string, legacyMarkdown: string | null | undefined): string {
@@ -125,5 +163,17 @@ export function resolveInitialLightNoteHtml(currentHtml: string, legacyMarkdown:
   const legacy = (legacyMarkdown || "").trim();
   if (legacy) return sanitizeLightNoteHtml(markdownToBasicHtml(legacy));
 
-  return "<p>开始记录今天的重要事项...</p>";
+  return "";
+}
+
+export function hasLightNoteContent(html: string): boolean {
+  const source = html || "";
+  if (!source.trim()) return false;
+  if (/\bln-task-card\b/i.test(source)) return true;
+  const textOnly = source
+    .replace(/<br\s*\/?>/gi, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/<[^>]+>/g, "")
+    .trim();
+  return textOnly.length > 0;
 }

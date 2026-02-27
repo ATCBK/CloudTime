@@ -35,6 +35,7 @@ import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { NoteDocument } from "../types";
 import { resolveNextCurrentNoteId } from "./noteSelection";
 import { sanitizeClipboardHtmlForNotes } from "./notePasteFallback";
+import { markdownPlainTextToSanitizedHtml, shouldPreferMarkdownPlainText } from "./pasteMarkdownAdapter";
 import { CONTEXT_SELECTION_ACTIONS, FLOATING_SELECTION_ACTIONS, SELECTION_BLOCK_MENU_COMPACT, SelectionActionId } from "./notesSelectionActions";
 
 interface NotesPageProps {
@@ -178,7 +179,21 @@ function sanitizeUnsupportedHtml(input: string): string {
   if (!input || typeof window === "undefined") return input;
   const parser = new window.DOMParser();
   const doc = parser.parseFromString(input, "text/html");
-  doc.querySelectorAll("input,img").forEach((node) => node.remove());
+  doc.querySelectorAll("img").forEach((node) => node.remove());
+  doc.querySelectorAll("input").forEach((node) => {
+    const inputEl = node as HTMLInputElement;
+    const type = (inputEl.getAttribute("type") || "").toLowerCase();
+    const isCheckbox = type === "checkbox";
+    const isTaskCheckbox = isCheckbox && inputEl.hasAttribute("disabled");
+    if (!isTaskCheckbox) {
+      node.remove();
+      return;
+    }
+    inputEl.setAttribute("type", "checkbox");
+    inputEl.setAttribute("disabled", "");
+    if (inputEl.checked || inputEl.hasAttribute("checked")) inputEl.setAttribute("checked", "");
+    else inputEl.removeAttribute("checked");
+  });
   return doc.body.innerHTML;
 }
 
@@ -1014,6 +1029,15 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
 
     const html = clipboard.getData("text/html");
     const text = clipboard.getData("text/plain");
+    if (text && shouldPreferMarkdownPlainText(text)) {
+      event.preventDefault();
+      document.execCommand("insertHTML", false, markdownPlainTextToSanitizedHtml(text));
+      updateCurrentNote(editorRef.current.innerHTML);
+      updateSelectionMenu();
+      updateFormatState();
+      return;
+    }
+
     if (html) {
       event.preventDefault();
       const sanitizedPasteHtml = sanitizeClipboardHtmlForNotes(html, text);
@@ -1026,7 +1050,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
 
     if (text) {
       event.preventDefault();
-      document.execCommand("insertText", false, text);
+      document.execCommand("insertHTML", false, markdownPlainTextToSanitizedHtml(text));
       updateCurrentNote(editorRef.current.innerHTML);
       updateSelectionMenu();
       updateFormatState();

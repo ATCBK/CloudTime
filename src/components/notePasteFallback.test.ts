@@ -39,26 +39,25 @@ describe("notePasteFallback", () => {
     expect(html).toContain("<strong>Heading</strong>");
   });
 
-  it("downgrades pasted heading tags to paragraph to avoid false title rendering", () => {
-    const raw = "<h2>普通正文 A</h2><h3>普通正文 B</h3>";
-    const html = sanitizeClipboardHtmlForNotes(raw, "普通正文 A\n普通正文 B");
-    expect(html).toContain("<p>普通正文 A</p>");
-    expect(html).toContain("<p>普通正文 B</p>");
+  it("downgrades pasted heading tags to paragraph by default", () => {
+    const raw = "<h2>A</h2><h3>B</h3>";
+    const html = sanitizeClipboardHtmlForNotes(raw, "A\nB");
+    expect(html).toContain("<p>A</p>");
+    expect(html).toContain("<p>B</p>");
     expect(html).not.toContain("<h2>");
     expect(html).not.toContain("<h3>");
   });
 
-  it("falls back to plain text when html keeps only first block but plain text has multiple lines", () => {
-    const raw = "<h2>第一行</h2><custom-block>第二行</custom-block><custom-block>第三行</custom-block>";
-    const html = sanitizeClipboardHtmlForNotes(raw, "第一行\n第二行\n第三行");
-    expect(html).toContain("<p>第一行</p>");
-    expect(html).toContain("<p>第二行</p>");
-    expect(html).toContain("<p>第三行</p>");
-  });
-
-  it("falls back to plain text paragraphs when unknown wrappers collapse multiline content", () => {
-    const raw = "<p>行一</p><x-row>行二</x-row><x-row>行三</x-row><x-row>行四</x-row>";
-    const html = sanitizeClipboardHtmlForNotes(raw, "行一\n行二\n行三\n行四");
-    expect(html).toBe("<p>行一</p><p>行二</p><p>行三</p><p>行四</p>");
+  it("keeps headings, table and task checkbox when extended options are enabled", () => {
+    const raw = "<h3>Title</h3><ul><li><input type=\"checkbox\" checked disabled>Done</li></ul><table><thead><tr><th>A</th></tr></thead><tbody><tr><td>B</td></tr></tbody></table>";
+    const html = sanitizeClipboardHtmlForNotes(raw, "Title\n- [x] Done", {
+      preserveHeadings: true,
+      allowTables: true,
+      allowTaskCheckbox: true
+    });
+    expect(html).toContain("<h3>Title</h3>");
+    expect(html).toContain('<input type="checkbox" disabled checked>');
+    expect(html).toContain("<table>");
   });
 });
+

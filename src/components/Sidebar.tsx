@@ -75,9 +75,9 @@ function QuickActionIcon({ type }: { type: "quick-panel" | "quick-create" | "the
 function BrandCloud(): JSX.Element {
   return (
     <svg className="brand-cloud" viewBox="0 0 24 24" aria-hidden="true">
-      <path className="brand-cloud-fill" d="M7.2 18a4.7 4.7 0 0 1-.6-9.3 5.9 5.9 0 0 1 10.9-1.9 4.1 4.1 0 1 1 .7 8.2z" />
-      <path className="brand-cloud-stroke" d="M7.2 18a4.7 4.7 0 0 1-.6-9.3 5.9 5.9 0 0 1 10.9-1.9 4.1 4.1 0 1 1 .7 8.2z" />
-      <path className="brand-cloud-stroke" d="M9.2 13.9h5.5" />
+      <path className="brand-cloud-fill" d="M5.8 18.1c-2.2 0-4-1.8-4-4 0-1.9 1.3-3.5 3.2-3.9.5-3.5 3.5-6.1 7.1-6.1 3.3 0 6.1 2.2 6.9 5.3 1.8.2 3.2 1.8 3.2 3.7 0 2.8-2.3 5-5 5z" />
+      <path className="brand-cloud-stroke" d="M5.8 18.1c-2.2 0-4-1.8-4-4 0-1.9 1.3-3.5 3.2-3.9.5-3.5 3.5-6.1 7.1-6.1 3.3 0 6.1 2.2 6.9 5.3 1.8.2 3.2 1.8 3.2 3.7 0 2.8-2.3 5-5 5z" />
+      <path className="brand-cloud-stroke" d="M8.9 12.5l2.1 2.1 4.1-4.1" />
     </svg>
   );
 }
@@ -87,7 +87,6 @@ function renderNavItem(item: NavItem, activePage: AppPage, onNavigate: (page: Ap
   return (
     <div key={item.page} className="icon-content">
       <button type="button" className={activeClass} data-social={item.social} aria-label={item.label} onClick={() => onNavigate(item.page)}>
-        <span className="filled" />
         <Icon social={item.social} />
       </button>
       <div className="tooltip">{item.label}</div>

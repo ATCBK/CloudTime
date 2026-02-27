@@ -2,7 +2,7 @@
 import { Bold, Check, Eye, EyeOff, GripVertical, Italic, Link2, List, RotateCcw, Trash2, X } from "lucide-react";
 import { TimelineItem, TodoItem } from "../types";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
-import { resolveInitialLightNoteHtml, sanitizeLightNoteHtml } from "./lightNoteRichText";
+import { hasLightNoteContent, resolveInitialLightNoteHtml, sanitizeLightNoteHtml } from "./lightNoteRichText";
 import { buildTaskReferenceDropHtml, scheduleToTodoCandidate, toggleTodoCompleted } from "./timeManagerActions";
 import { boundRange, computeAutoScrollDelta, pointerToSnappedRange, snapToStep } from "./timeDragMath";
 import { buildQuickPanelItems, removeTodoAfterSchedule } from "./quickPanelState";
@@ -10,6 +10,7 @@ import { buildHourSlots24, computeMinuteOfDay, computeMsUntilNextMidnight, compu
 import { computeLaneWidth, computeTimelineUsableWidth } from "./timelineLayout";
 import { getGreetingLabel } from "./timeManagerTheme";
 import { canCreateTodo, removeScheduleWithSnapshot, undoRemovedSchedule } from "./timeManagerSafety";
+import { markdownPlainTextToSanitizedHtml, shouldPreferMarkdownPlainText } from "./pasteMarkdownAdapter";
 
 interface TimeManagerPageProps {
   todos: TodoItem[];
@@ -50,6 +51,7 @@ const SNAP_MINUTES = 15;
 const AUTO_SCROLL_EDGE = 56;
 const AUTO_SCROLL_SPEED = 20;
 const TIMELINE_LABEL_WIDTH = 58;
+const LIGHT_NOTE_PLACEHOLDER = "开始记录今天的重要事项...";
 
 
 function toMinutes(hour: number, minute: number): number {
@@ -271,8 +273,10 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     const html = event.clipboardData.getData("text/html");
     const text = event.clipboardData.getData("text/plain");
 
-    if (html) document.execCommand("insertHTML", false, sanitizeLightNoteHtml(html));
-    else if (text) document.execCommand("insertText", false, text);
+    if (text && shouldPreferMarkdownPlainText(text)) {
+      document.execCommand("insertHTML", false, sanitizeLightNoteHtml(markdownPlainTextToSanitizedHtml(text)));
+    } else if (html) document.execCommand("insertHTML", false, sanitizeLightNoteHtml(html));
+    else if (text) document.execCommand("insertHTML", false, sanitizeLightNoteHtml(markdownPlainTextToSanitizedHtml(text)));
 
     if (!lightNoteEditorRef.current) return;
     setLightNoteHtml(sanitizeLightNoteHtml(lightNoteEditorRef.current.innerHTML));
@@ -817,6 +821,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
 
   const timelineUsableWidth = computeTimelineUsableWidth(timelineWidth, TIMELINE_PADDING, TIMELINE_LABEL_WIDTH, MIN_CARD_WIDTH);
   const greetingLabel = useMemo(() => getGreetingLabel(new Date().getHours()), [nowMinute]);
+  const lightNoteIsEmpty = useMemo(() => !hasLightNoteContent(lightNoteHtml), [lightNoteHtml]);
 
   return (
     <section className="page time-manager-page">
@@ -1125,6 +1130,8 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
           <div
             ref={lightNoteEditorRef}
             className={draggingScheduleId ? "md-note-input light-note-editor light-note-scroll note-drop-active" : "md-note-input light-note-editor light-note-scroll"}
+            data-placeholder={LIGHT_NOTE_PLACEHOLDER}
+            data-empty={lightNoteIsEmpty ? "true" : "false"}
             contentEditable
             suppressContentEditableWarning
             onInput={() => {
