@@ -12,7 +12,8 @@
     "build:renderer": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "pack:win": "node scripts/prepare-win-icon.mjs && npm run build && electron-builder --win nsis && powershell -ExecutionPolicy Bypass -File scripts/keep-only-exe.ps1"
   },
   "dependencies": {
     "lucide-react": "^0.564.0",
@@ -29,9 +30,42 @@
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
     "electron": "^34.0.0",
+    "electron-builder": "^26.0.12",
+    "png-to-ico": "^2.1.8",
+    "rcedit": "^5.0.2",
+    "sharp": "^0.34.4",
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
     "vitest": "^4.0.18",
     "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.cloudo.app",
+    "productName": "Cloudo",
+    "directories": {
+      "output": "release"
+    },
+    "afterPack": "scripts/after-pack.cjs",
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "etc/云朵待办.png",
+      "package.json"
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "differentialPackage": false,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico"
+    }
   }
 }
