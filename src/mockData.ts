@@ -29,12 +29,4 @@ export const mockTimeline: TimelineItem[] = [
   }
 ];
 
-export const mockNotes: NoteDocument[] = [
-  {
-    id: "n1",
-    project: "Cloudo",
-    title: "首页结构草案",
-    date: "2026-02-13",
-    content: "# 首页结构草案\n\n- 三栏布局\n- 中栏优先显示时间轴"
-  }
-];
+export const mockNotes: NoteDocument[] = [];

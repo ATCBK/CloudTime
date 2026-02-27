@@ -2997,6 +2997,27 @@ body.quick-panel-window-view #root {
   min-width: 160px;
 }
 
+.tm-type-manage-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.tm-type-delete-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 8px;
+}
+
+.tm-type-delete-row p {
+  margin: 0;
+  color: var(--tm-text-muted);
+  font-size: 12px;
+}
+
 .tm-type-create-error {
   margin: 0 0 8px;
   color: var(--status-error);
@@ -3096,6 +3117,11 @@ body.quick-panel-window-view #root {
 .tm-ghost-btn:hover {
   border-color: rgba(var(--brand-blue-rgb), 0.32);
   background: rgba(var(--brand-blue-rgb), 0.08);
+}
+
+.tm-ghost-btn.active {
+  border-color: rgba(var(--brand-blue-rgb), 0.4);
+  background: rgba(var(--brand-blue-rgb), 0.14);
 }
 
 .tm-todo-list {

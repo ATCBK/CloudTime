@@ -5,6 +5,7 @@ describe("todoTypeModel", () => {
   it("normalizes empty type to default", () => {
     expect(normalizeTodoType("")).toBe(DEFAULT_TODO_TYPE);
     expect(normalizeTodoType("   ")).toBe(DEFAULT_TODO_TYPE);
+    expect(normalizeTodoType("", "默认")).toBe("默认");
   });
 
   it("builds deduplicated type list and keeps default first", () => {
@@ -17,6 +18,11 @@ describe("todoTypeModel", () => {
     expect(types[0]).toBe(DEFAULT_TODO_TYPE);
     expect(types).toContain("工作");
     expect(types).toContain("学习");
+  });
+
+  it("supports custom default type as protected root", () => {
+    const types = buildTodoTypesFromTodos([], [], "自定义通用");
+    expect(types).toEqual(["自定义通用"]);
   });
 
   it("validates create type rules", () => {

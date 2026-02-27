@@ -3,17 +3,21 @@ import { TodoItem } from "../types";
 export const DEFAULT_TODO_TYPE = "通用";
 const MAX_TODO_TYPE_LENGTH = 20;
 
-export function normalizeTodoType(raw?: string | null): string {
+export function normalizeTodoType(raw?: string | null, defaultType: string = DEFAULT_TODO_TYPE): string {
   const value = (raw ?? "").trim();
-  return value ? value : DEFAULT_TODO_TYPE;
+  return value ? value : defaultType;
 }
 
-export function buildTodoTypesFromTodos(todos: TodoItem[], extraTypes: string[] = []): string[] {
-  const unique = new Set<string>([DEFAULT_TODO_TYPE]);
-  extraTypes.forEach((type) => unique.add(normalizeTodoType(type)));
-  todos.forEach((todo) => unique.add(normalizeTodoType(todo.project)));
+export function buildTodoTypesFromTodos(
+  todos: TodoItem[],
+  extraTypes: string[] = [],
+  defaultType: string = DEFAULT_TODO_TYPE
+): string[] {
+  const unique = new Set<string>([defaultType]);
+  extraTypes.forEach((type) => unique.add(normalizeTodoType(type, defaultType)));
+  todos.forEach((todo) => unique.add(normalizeTodoType(todo.project, defaultType)));
   const list = Array.from(unique).filter(Boolean);
-  return [DEFAULT_TODO_TYPE, ...list.filter((item) => item !== DEFAULT_TODO_TYPE)];
+  return [defaultType, ...list.filter((item) => item !== defaultType)];
 }
 
 export function canCreateTodoType(

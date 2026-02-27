@@ -192,17 +192,19 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
   const [selectedDateKey, setSelectedDateKey] = useLocalStorageState<string>("cloudo.time.selectedDateKey", formatDateKey(initialNow));
 
   const [todosState, setTodosState] = useLocalStorageState<TodoItem[]>("cloudo.time.todos", todos);
+  const [baseTodoType, setBaseTodoType] = useLocalStorageState<string>("cloudo.time.baseTodoType", DEFAULT_TODO_TYPE);
   const [newTodoTitle, setNewTodoTitle] = useState<string>("");
   const [newTodoDetail, setNewTodoDetail] = useState<string>("");
-  const [newTodoType, setNewTodoType] = useLocalStorageState<string>("cloudo.time.newTodoType", DEFAULT_TODO_TYPE);
+  const [newTodoType, setNewTodoType] = useLocalStorageState<string>("cloudo.time.newTodoType", baseTodoType);
   const [newTodoDuration, setNewTodoDuration] = useLocalStorageState<number>("cloudo.time.newTodoDuration", 60);
-  const [todoTypesState, setTodoTypesState] = useLocalStorageState<string[]>("cloudo.time.todoTypes", [DEFAULT_TODO_TYPE]);
-  const [selectedTodoType, setSelectedTodoType] = useLocalStorageState<string>("cloudo.time.selectedTodoType", DEFAULT_TODO_TYPE);
+  const [todoTypesState, setTodoTypesState] = useLocalStorageState<string[]>("cloudo.time.todoTypes", [baseTodoType]);
+  const [selectedTodoType, setSelectedTodoType] = useLocalStorageState<string>("cloudo.time.selectedTodoType", baseTodoType);
   const [showCreateTodoModal, setShowCreateTodoModal] = useState<boolean>(false);
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
-  const [showCreateTypeInline, setShowCreateTypeInline] = useState<boolean>(false);
-  const [newTypeName, setNewTypeName] = useState<string>("");
-  const [newTypeError, setNewTypeError] = useState<string | null>(null);
+  const [showTypeManageMenu, setShowTypeManageMenu] = useState<boolean>(false);
+  const [typeManageMode, setTypeManageMode] = useState<"create" | "rename" | "delete" | null>(null);
+  const [typeManageName, setTypeManageName] = useState<string>("");
+  const [typeManageError, setTypeManageError] = useState<string | null>(null);
 
   const [scheduledItems, setScheduledItems] = useLocalStorageState<ScheduledItem[]>("cloudo.time.scheduledItems",
     timelineItems.map((item) => ({
@@ -242,10 +244,10 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
   const selectedDate = useMemo(() => parseDateKey(selectedDateKey), [selectedDateKey]);
   const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
   const monthDates = useMemo(() => getMonthGrid(selectedDate), [selectedDate]);
-  const todoTypes = useMemo(() => buildTodoTypesFromTodos(todosState, todoTypesState), [todoTypesState, todosState]);
+  const todoTypes = useMemo(() => buildTodoTypesFromTodos(todosState, todoTypesState, baseTodoType), [baseTodoType, todoTypesState, todosState]);
   const selectedTypeTodos = useMemo(
-    () => todosState.filter((todo) => normalizeTodoType(todo.project) === selectedTodoType),
-    [selectedTodoType, todosState]
+    () => todosState.filter((todo) => normalizeTodoType(todo.project, baseTodoType) === selectedTodoType),
+    [baseTodoType, selectedTodoType, todosState]
   );
 
   const todosById = useMemo(() => new Map(todosState.map((todo) => [todo.id, todo])), [todosState]);
@@ -267,9 +269,9 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
 
   useEffect(() => {
     if (!todoTypes.includes(selectedTodoType)) {
-      setSelectedTodoType(DEFAULT_TODO_TYPE);
+      setSelectedTodoType(baseTodoType);
     }
-  }, [selectedTodoType, setSelectedTodoType, todoTypes]);
+  }, [baseTodoType, selectedTodoType, setSelectedTodoType, todoTypes]);
 
   useEffect(() => {
     if (lightNoteHtml.trim()) return;
@@ -352,7 +354,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     const focusCreate = (): void => {
       setEditingTodoId(null);
       setShowCreateTodoModal(true);
-      const preferredType = todoTypes.includes(selectedTodoType) ? selectedTodoType : DEFAULT_TODO_TYPE;
+      const preferredType = todoTypes.includes(selectedTodoType) ? selectedTodoType : baseTodoType;
       setNewTodoType(preferredType);
       requestAnimationFrame(() => {
         quickCreateTitleRef.current?.focus();
@@ -365,7 +367,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     return () => {
       window.removeEventListener("cloudo:focusQuickCreate", onCustomFocus);
     };
-  }, [selectedTodoType, setNewTodoType, todoTypes]);
+  }, [baseTodoType, selectedTodoType, setNewTodoType, todoTypes]);
 
   useEffect(() => {
     return () => {
@@ -671,7 +673,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     const title = newTodoTitle.trim();
     if (!canCreateTodo(title)) return;
     const details = newTodoDetail.trim();
-    const todoType = normalizeTodoType(newTodoType);
+    const todoType = normalizeTodoType(newTodoType, baseTodoType);
     if (editingTodoId) {
       const durationMinutes = Math.max(15, newTodoDuration);
       setTodosState((prev) =>
@@ -713,7 +715,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     setEditingTodoId(null);
     setNewTodoTitle("");
     setNewTodoDetail("");
-    const preferredType = todoTypes.includes(selectedTodoType) ? selectedTodoType : DEFAULT_TODO_TYPE;
+    const preferredType = todoTypes.includes(selectedTodoType) ? selectedTodoType : baseTodoType;
     setNewTodoType(preferredType);
     setShowCreateTodoModal(true);
     requestAnimationFrame(() => quickCreateTitleRef.current?.focus());
@@ -725,7 +727,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     setEditingTodoId(todoId);
     setNewTodoTitle(target.title);
     setNewTodoDetail(target.details ?? "");
-    setNewTodoType(normalizeTodoType(target.project));
+    setNewTodoType(normalizeTodoType(target.project, baseTodoType));
     setNewTodoDuration(Math.max(15, target.durationMinutes));
     setShowCreateTodoModal(true);
     requestAnimationFrame(() => quickCreateTitleRef.current?.focus());
@@ -738,7 +740,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     setEditingTodoId(current.todoId);
     setNewTodoTitle(linked?.title ?? current.title);
     setNewTodoDetail(linked?.details ?? current.details ?? "");
-    setNewTodoType(normalizeTodoType(linked?.project ?? current.project));
+    setNewTodoType(normalizeTodoType(linked?.project ?? current.project, baseTodoType));
     setNewTodoDuration(linked?.durationMinutes ?? computeDurationMinutesFromSchedule(current));
     setShowCreateTodoModal(true);
     requestAnimationFrame(() => quickCreateTitleRef.current?.focus());
@@ -748,24 +750,86 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     if (todoTypes.length === 0) return;
     const index = Math.max(0, todoTypes.findIndex((type) => type === selectedTodoType));
     const nextIndex = Math.max(0, Math.min(todoTypes.length - 1, index + delta));
-    const nextType = todoTypes[nextIndex] ?? DEFAULT_TODO_TYPE;
+    const nextType = todoTypes[nextIndex] ?? baseTodoType;
     setSelectedTodoType(nextType);
   };
 
-  const createTodoType = (): void => {
-    const result = canCreateTodoType(newTypeName, todoTypes);
+  const openTypeManage = (): void => {
+    setShowTypeManageMenu((prev) => !prev);
+    setTypeManageMode(null);
+    setTypeManageName("");
+    setTypeManageError(null);
+  };
+
+  const startTypeManageMode = (mode: "create" | "rename" | "delete"): void => {
+    setTypeManageMode(mode);
+    setTypeManageError(null);
+    if (mode === "rename") setTypeManageName(selectedTodoType);
+    if (mode === "create") setTypeManageName("");
+  };
+
+  const applyCreateType = (): void => {
+    const result = canCreateTodoType(typeManageName, todoTypes);
     if (!result.ok) {
-      if (result.reason === "empty") setNewTypeError("类型名不能为空");
-      if (result.reason === "duplicate") setNewTypeError("该类型已存在");
-      if (result.reason === "too_long") setNewTypeError("类型名最多20个字符");
+      if (result.reason === "empty") setTypeManageError("类型名不能为空");
+      if (result.reason === "duplicate") setTypeManageError("该类型已存在");
+      if (result.reason === "too_long") setTypeManageError("类型名最多20个字符");
       return;
     }
     setTodoTypesState((prev) => [...prev, result.value]);
     setSelectedTodoType(result.value);
     setNewTodoType(result.value);
-    setNewTypeName("");
-    setNewTypeError(null);
-    setShowCreateTypeInline(false);
+    setTypeManageName("");
+    setTypeManageError(null);
+    setTypeManageMode(null);
+    setShowTypeManageMenu(false);
+  };
+
+  const applyRenameType = (): void => {
+    const from = selectedTodoType;
+    const to = typeManageName.trim();
+    if (!to) {
+      setTypeManageError("类型名不能为空");
+      return;
+    }
+    if (to === from) {
+      setTypeManageMode(null);
+      setShowTypeManageMenu(false);
+      return;
+    }
+    const normalizedSet = todoTypes.filter((item) => item !== from);
+    const result = canCreateTodoType(to, normalizedSet);
+    if (!result.ok) {
+      if (result.reason === "duplicate") setTypeManageError("该类型已存在");
+      if (result.reason === "too_long") setTypeManageError("类型名最多20个字符");
+      if (result.reason === "empty") setTypeManageError("类型名不能为空");
+      return;
+    }
+    setTodoTypesState((prev) => prev.map((item) => (item === from ? result.value : item)));
+    setTodosState((prev) => prev.map((todo) => (normalizeTodoType(todo.project, baseTodoType) === from ? { ...todo, project: result.value } : todo)));
+    setScheduledItems((prev) => prev.map((item) => (normalizeTodoType(item.project, baseTodoType) === from ? { ...item, project: result.value } : item)));
+    if (from === baseTodoType) setBaseTodoType(result.value);
+    setSelectedTodoType(result.value);
+    setNewTodoType((prev) => (prev === from ? result.value : prev));
+    setTypeManageMode(null);
+    setShowTypeManageMenu(false);
+    setTypeManageError(null);
+  };
+
+  const applyDeleteType = (): void => {
+    const target = selectedTodoType;
+    if (target === baseTodoType) {
+      setTypeManageError("基础类型不可删除");
+      return;
+    }
+    setTodoTypesState((prev) => prev.filter((item) => item !== target));
+    setTodosState((prev) => prev.map((todo) => (normalizeTodoType(todo.project, baseTodoType) === target ? { ...todo, project: baseTodoType } : todo)));
+    setScheduledItems((prev) => prev.map((item) => (normalizeTodoType(item.project, baseTodoType) === target ? { ...item, project: baseTodoType } : item)));
+    setSelectedTodoType(baseTodoType);
+    setNewTodoType((prev) => (prev === target ? baseTodoType : prev));
+    setTypeManageMode(null);
+    setShowTypeManageMenu(false);
+    setTypeManageError(null);
   };
 
   const toggleTodo = (id: string): void => {
@@ -1108,40 +1172,55 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
               <button
                 type="button"
                 className="tm-add-type-btn"
-                aria-label="新建类型"
-                title="新建类型"
-                onClick={() => { setShowCreateTypeInline((prev) => !prev); setNewTypeError(null); }}
+                aria-label="管理类型"
+                title="管理类型"
+                onClick={openTypeManage}
               >
-                +
+                …
               </button>
             </div>
           </div>
 
-          {showCreateTypeInline ? (
+          {showTypeManageMenu ? (
+            <div className="tm-type-manage-row">
+              <button type="button" className={typeManageMode === "create" ? "tm-ghost-btn active" : "tm-ghost-btn"} onClick={() => startTypeManageMode("create")}>新增</button>
+              <button type="button" className={typeManageMode === "rename" ? "tm-ghost-btn active" : "tm-ghost-btn"} onClick={() => startTypeManageMode("rename")}>重命名</button>
+              <button type="button" className={typeManageMode === "delete" ? "tm-ghost-btn active" : "tm-ghost-btn"} onClick={() => startTypeManageMode("delete")}>删除</button>
+              <button type="button" className="tm-ghost-btn" onClick={() => { setShowTypeManageMenu(false); setTypeManageMode(null); setTypeManageError(null); }}>关闭</button>
+            </div>
+          ) : null}
+
+          {showTypeManageMenu && (typeManageMode === "create" || typeManageMode === "rename") ? (
             <div className="tm-type-create-row">
               <input
-                value={newTypeName}
+                value={typeManageName}
                 onChange={(event) => {
-                  setNewTypeName(event.target.value);
-                  setNewTypeError(null);
+                  setTypeManageName(event.target.value);
+                  setTypeManageError(null);
                 }}
-                placeholder="输入类型名"
+                placeholder={typeManageMode === "create" ? "输入新类型名" : "输入重命名"}
               />
-              <button type="button" className="tm-ghost-btn" onClick={createTodoType}>确认</button>
+              <button type="button" className="tm-ghost-btn" onClick={typeManageMode === "create" ? applyCreateType : applyRenameType}>确认</button>
               <button
                 type="button"
                 className="tm-ghost-btn"
                 onClick={() => {
-                  setShowCreateTypeInline(false);
-                  setNewTypeName("");
-                  setNewTypeError(null);
+                  setTypeManageMode(null);
+                  setTypeManageName("");
+                  setTypeManageError(null);
                 }}
               >
                 取消
               </button>
             </div>
           ) : null}
-          {newTypeError ? <p className="tm-type-create-error">{newTypeError}</p> : null}
+          {showTypeManageMenu && typeManageMode === "delete" ? (
+            <div className="tm-type-delete-row">
+              <p>{selectedTodoType === baseTodoType ? "基础类型不可删除" : `删除后任务会迁移到「${baseTodoType}」`}</p>
+              <button type="button" className="tm-ghost-btn danger" onClick={applyDeleteType} disabled={selectedTodoType === baseTodoType}>确认删除</button>
+            </div>
+          ) : null}
+          {typeManageError ? <p className="tm-type-create-error">{typeManageError}</p> : null}
 
           {selectedTypeTodos.length === 0 ? (
             <div className="tm-empty-state">
@@ -1159,7 +1238,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
                 onDragEnd={handleTodoDragEnd}
               >
                 <p className="todo-title">{todo.title}</p>
-                <p className="todo-meta">{normalizeTodoType(todo.project)}</p>
+                <p className="todo-meta">{normalizeTodoType(todo.project, baseTodoType)}</p>
                 <p className="todo-meta">{todo.durationMinutes} 分钟</p>
                 <div className="todo-actions">
                   <button type="button" title={todo.completed ? "恢复" : "完成"} onClick={() => toggleTodo(todo.id)}>
@@ -1491,7 +1570,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
               return (
                 <>
                   <h3>{current.title}</h3>
-                  <p className="soft-text">{normalizeTodoType(current.project)}</p>
+                  <p className="soft-text">{normalizeTodoType(current.project, baseTodoType)}</p>
                   <p className="soft-text">{formatTime(current.startHour, current.startMinute)} - {formatTime(current.endHour, current.endMinute)}</p>
                   <p className="todo-detail">{linked?.details?.trim() ? linked.details : current.details?.trim() ? current.details : "暂无详情"}</p>
                 </>
