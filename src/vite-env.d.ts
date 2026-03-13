@@ -18,6 +18,13 @@ interface DynamicHotkeys {
   quickCreateTodo: string;
 }
 
+interface DiskMarkdownNote {
+  relativeDir: string;
+  fileName: string;
+  content: string;
+  updatedAt: number;
+}
+
 declare global {
   interface Window {
     cloudo: {
@@ -30,6 +37,7 @@ declare global {
       getDynamicHotkeys: () => Promise<DynamicHotkeys>;
       setDynamicHotkeys: (payload: DynamicHotkeys) => Promise<{ ok: boolean; message?: string }>;
       getStorageBaseDir: () => Promise<string>;
+      listDiskMarkdownNotes: () => Promise<DiskMarkdownNote[]>;
       onQuickPanelState: (handler: (items: QuickPanelItem[]) => void) => () => void;
       onQuickPanelToggleTask: (handler: (todoId: string) => void) => () => void;
       onQuickCreateFocus: (handler: () => void) => () => void;

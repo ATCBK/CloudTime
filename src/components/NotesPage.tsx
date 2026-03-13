@@ -37,24 +37,11 @@ import { resolveNextCurrentNoteId } from "./noteSelection";
 import { sanitizeClipboardHtmlForNotes } from "./notePasteFallback";
 import { markdownPlainTextToSanitizedHtml, shouldPreferMarkdownPlainText } from "./pasteMarkdownAdapter";
 import { CONTEXT_SELECTION_ACTIONS, FLOATING_SELECTION_ACTIONS, SELECTION_BLOCK_MENU_COMPACT, SelectionActionId } from "./notesSelectionActions";
+import { buildNotesImportModel, FolderNode, RichNote } from "./notesDiskImport";
 
 interface NotesPageProps {
   notes: NoteDocument[];
   baseDir?: string;
-}
-
-interface FolderNode {
-  id: string;
-  name: string;
-  children: FolderNode[];
-}
-
-interface RichNote {
-  id: string;
-  folderId: string;
-  title: string;
-  contentHtml: string;
-  updatedAt: number;
 }
 
 interface ContextMenuState {
@@ -1088,6 +1075,26 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     setContextMenu(null);
   };
 
+  const importNotesFromDisk = async (): Promise<void> => {
+    try {
+      const entries = await window.cloudo.listDiskMarkdownNotes();
+      if (entries.length === 0) {
+        setSaveText("未找到 .md 文件");
+        return;
+      }
+
+      const model = buildNotesImportModel(entries, markdownPlainTextToSanitizedHtml);
+      setFolders(model.folders);
+      setExpandedIds(model.expandedFolderIds);
+      setSelectedFolderId(model.selectedFolderId);
+      setNoteList(model.notes);
+      setCurrentNoteId(model.currentNoteId);
+      setSaveText(`已导入 ${entries.length} 个文件`);
+    } catch {
+      setSaveText("导入失败");
+    }
+  };
+
   const manualRefresh = (): void => {
     const parse = <T,>(key: string): T | null => {
       try {
@@ -1837,7 +1844,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
                 <button type="button" className="icon-btn large" title="刷新" onClick={manualRefresh}>
                   <RefreshCw size={18} />
                 </button>
-                <button type="button" className="icon-btn large" title="导入" onClick={() => window.alert("后续接入导入") }>
+                <button type="button" className="icon-btn large" title="导入" onClick={() => void importNotesFromDisk()}>
                   <Upload size={18} />
                 </button>
               </>

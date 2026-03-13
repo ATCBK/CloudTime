@@ -18,6 +18,13 @@ interface DynamicHotkeys {
   quickCreateTodo: string;
 }
 
+interface DiskMarkdownNote {
+  relativeDir: string;
+  fileName: string;
+  content: string;
+  updatedAt: number;
+}
+
 const api = {
   setWindowOpacity: (value: number) => ipcRenderer.invoke("window:setOpacity", value),
   toggleWindow: () => ipcRenderer.invoke("window:toggle"),
@@ -28,6 +35,7 @@ const api = {
   getDynamicHotkeys: (): Promise<DynamicHotkeys> => ipcRenderer.invoke("hotkeys:getDynamic"),
   setDynamicHotkeys: (payload: DynamicHotkeys): Promise<{ ok: boolean; message?: string }> => ipcRenderer.invoke("hotkeys:setDynamic", payload),
   getStorageBaseDir: (): Promise<string> => ipcRenderer.invoke("storage:getBaseDir"),
+  listDiskMarkdownNotes: (): Promise<DiskMarkdownNote[]> => ipcRenderer.invoke("notes:listDiskMarkdown"),
   onQuickPanelState: (handler: (items: QuickPanelItem[]) => void): (() => void) => {
     const wrapped = (_event: Electron.IpcRendererEvent, items: QuickPanelItem[]): void => handler(items);
     ipcRenderer.on("quick-panel:state", wrapped);

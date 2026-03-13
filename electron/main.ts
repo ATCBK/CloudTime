@@ -14,6 +14,13 @@ type DynamicHotkeys = {
   quickCreateTodo: string;
 };
 
+type DiskMarkdownNote = {
+  relativeDir: string;
+  fileName: string;
+  content: string;
+  updatedAt: number;
+};
+
 let mainWindow: BrowserWindow | null = null;
 let quickPanelWindow: BrowserWindow | null = null;
 let quickPanelOpacity = 0.88;
@@ -191,6 +198,33 @@ async function ensureDataDirs(): Promise<string> {
   return baseDir;
 }
 
+async function readMarkdownFiles(dir: string, relativeDir: string = ""): Promise<DiskMarkdownNote[]> {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  const files: DiskMarkdownNote[] = [];
+
+  for (const entry of entries) {
+    if (entry.name.startsWith(".")) continue;
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      const nestedRelative = relativeDir ? path.join(relativeDir, entry.name) : entry.name;
+      files.push(...(await readMarkdownFiles(fullPath, nestedRelative)));
+      continue;
+    }
+    if (!entry.isFile()) continue;
+    if (!entry.name.toLowerCase().endsWith(".md")) continue;
+
+    const [content, stat] = await Promise.all([fs.readFile(fullPath, "utf8"), fs.stat(fullPath)]);
+    files.push({
+      relativeDir,
+      fileName: entry.name,
+      content,
+      updatedAt: stat.mtimeMs
+    });
+  }
+
+  return files;
+}
+
 app.whenReady().then(async () => {
   app.setAppUserModelId("com.cloudo.app");
   await ensureDataDirs();
@@ -257,3 +291,9 @@ ipcMain.handle("hotkeys:setDynamic", (_event, next: DynamicHotkeys) => {
 });
 
 ipcMain.handle("storage:getBaseDir", async () => ensureDataDirs());
+
+ipcMain.handle("notes:listDiskMarkdown", async () => {
+  const baseDir = await ensureDataDirs();
+  const notesDir = path.join(baseDir, "Notes");
+  return readMarkdownFiles(notesDir);
+});
