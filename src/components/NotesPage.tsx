@@ -34,10 +34,9 @@ import {
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { NoteDocument } from "../types";
 import { resolveNextCurrentNoteId } from "./noteSelection";
-import { sanitizeClipboardHtmlForNotes } from "./notePasteFallback";
-import { markdownPlainTextToSanitizedHtml, shouldPreferMarkdownPlainText } from "./pasteMarkdownAdapter";
 import { CONTEXT_SELECTION_ACTIONS, FLOATING_SELECTION_ACTIONS, SELECTION_BLOCK_MENU_COMPACT, SelectionActionId } from "./notesSelectionActions";
 import { buildNotesImportModel, FolderNode, RichNote } from "./notesDiskImport";
+import { isLikelyMarkdown, markdownToSanitizedHtml, sanitizeNoteEditorHtml, sanitizePastedHtml } from "./markdownCore";
 
 interface NotesPageProps {
   notes: NoteDocument[];
@@ -160,28 +159,6 @@ function ensureMdFileName(raw: string): string {
 
 function stripHtml(input: string): string {
   return input.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function sanitizeUnsupportedHtml(input: string): string {
-  if (!input || typeof window === "undefined") return input;
-  const parser = new window.DOMParser();
-  const doc = parser.parseFromString(input, "text/html");
-  doc.querySelectorAll("img").forEach((node) => node.remove());
-  doc.querySelectorAll("input").forEach((node) => {
-    const inputEl = node as HTMLInputElement;
-    const type = (inputEl.getAttribute("type") || "").toLowerCase();
-    const isCheckbox = type === "checkbox";
-    const isTaskCheckbox = isCheckbox && inputEl.hasAttribute("disabled");
-    if (!isTaskCheckbox) {
-      node.remove();
-      return;
-    }
-    inputEl.setAttribute("type", "checkbox");
-    inputEl.setAttribute("disabled", "");
-    if (inputEl.checked || inputEl.hasAttribute("checked")) inputEl.setAttribute("checked", "");
-    else inputEl.removeAttribute("checked");
-  });
-  return doc.body.innerHTML;
 }
 
 function removeCommentAnchorFromHtml(input: string, commentId: string): string {
@@ -440,7 +417,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
   const computedTocDividerWidth = focusMode || tocPanelCollapsed ? 0 : 6;
   const computedCommentPaneWidth = focusMode ? 0 : (commentPanelCollapsed ? 40 : commentPaneWidth);
   const computedCommentDividerWidth = focusMode ? 0 : 6;
-  const sanitizedCurrentHtml = useMemo(() => sanitizeUnsupportedHtml(currentNote?.contentHtml ?? "<p></p>"), [currentNote?.contentHtml]);
+  const sanitizedCurrentHtml = useMemo(() => sanitizeNoteEditorHtml(currentNote?.contentHtml ?? "<p></p>"), [currentNote?.contentHtml]);
   const tocTree = useMemo(() => parseTocHeadings(sanitizedCurrentHtml), [sanitizedCurrentHtml]);
   const tocFlat = useMemo(() => {
     const list: TocHeadingNode[] = [];
@@ -747,7 +724,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
 
   const updateCurrentNote = (html: string): void => {
     if (!currentNote) return;
-    pendingSaveRef.current = { noteId: currentNote.id, html: sanitizeUnsupportedHtml(html) };
+    pendingSaveRef.current = { noteId: currentNote.id, html: sanitizeNoteEditorHtml(html) };
     setSaveText("编辑中，5秒自动保存");
   };
 
@@ -1016,9 +993,9 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
 
     const html = clipboard.getData("text/html");
     const text = clipboard.getData("text/plain");
-    if (text && shouldPreferMarkdownPlainText(text)) {
+    if (text && isLikelyMarkdown(text)) {
       event.preventDefault();
-      document.execCommand("insertHTML", false, markdownPlainTextToSanitizedHtml(text));
+      document.execCommand("insertHTML", false, markdownToSanitizedHtml(text));
       updateCurrentNote(editorRef.current.innerHTML);
       updateSelectionMenu();
       updateFormatState();
@@ -1027,7 +1004,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
 
     if (html) {
       event.preventDefault();
-      const sanitizedPasteHtml = sanitizeClipboardHtmlForNotes(html, text);
+      const sanitizedPasteHtml = sanitizePastedHtml(html, text);
       document.execCommand("insertHTML", false, sanitizedPasteHtml);
       updateCurrentNote(editorRef.current.innerHTML);
       updateSelectionMenu();
@@ -1037,7 +1014,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
 
     if (text) {
       event.preventDefault();
-      document.execCommand("insertHTML", false, markdownPlainTextToSanitizedHtml(text));
+      document.execCommand("insertHTML", false, markdownToSanitizedHtml(text));
       updateCurrentNote(editorRef.current.innerHTML);
       updateSelectionMenu();
       updateFormatState();
@@ -1083,7 +1060,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
         return;
       }
 
-      const model = buildNotesImportModel(entries, markdownPlainTextToSanitizedHtml);
+      const model = buildNotesImportModel(entries, markdownToSanitizedHtml);
       setFolders(model.folders);
       setExpandedIds(model.expandedFolderIds);
       setSelectedFolderId(model.selectedFolderId);

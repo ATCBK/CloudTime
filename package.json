@@ -21,6 +21,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.13.1",
+    "sanitize-html": "^2.17.1",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
@@ -63,7 +64,7 @@
     },
     "nsis": {
       "perMachine": false,
-      "allowToChangeInstallationDirectory": false,
+      "allowToChangeInstallationDirectory": true,
       "differentialPackage": false,
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",

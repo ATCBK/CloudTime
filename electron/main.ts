@@ -21,6 +21,8 @@ type DiskMarkdownNote = {
   updatedAt: number;
 };
 
+const MAX_NOTE_FILE_SIZE_BYTES = 2 * 1024 * 1024;
+
 let mainWindow: BrowserWindow | null = null;
 let quickPanelWindow: BrowserWindow | null = null;
 let quickPanelOpacity = 0.88;
@@ -213,7 +215,9 @@ async function readMarkdownFiles(dir: string, relativeDir: string = ""): Promise
     if (!entry.isFile()) continue;
     if (!entry.name.toLowerCase().endsWith(".md")) continue;
 
-    const [content, stat] = await Promise.all([fs.readFile(fullPath, "utf8"), fs.stat(fullPath)]);
+    const stat = await fs.stat(fullPath);
+    if (stat.size > MAX_NOTE_FILE_SIZE_BYTES) continue;
+    const content = await fs.readFile(fullPath, "utf8");
     files.push({
       relativeDir,
       fileName: entry.name,
@@ -295,5 +299,9 @@ ipcMain.handle("storage:getBaseDir", async () => ensureDataDirs());
 ipcMain.handle("notes:listDiskMarkdown", async () => {
   const baseDir = await ensureDataDirs();
   const notesDir = path.join(baseDir, "Notes");
-  return readMarkdownFiles(notesDir);
+  try {
+    return await readMarkdownFiles(notesDir);
+  } catch {
+    return [];
+  }
 });

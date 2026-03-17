@@ -2,7 +2,7 @@
 import { Bold, Check, ChevronLeft, ChevronRight, Eye, EyeOff, Italic, Link2, List, Pencil, RotateCcw, Trash2, X } from "lucide-react";
 import { TimelineItem, TodoItem } from "../types";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
-import { hasLightNoteContent, resolveInitialLightNoteHtml, sanitizeLightNoteHtml } from "./lightNoteRichText";
+import { hasLightNoteContent, isLikelyMarkdown, markdownToSanitizedHtml, resolveInitialLightNoteHtml, sanitizeLightNoteHtml } from "./markdownCore";
 import { buildTaskReferenceDropHtml, scheduleToTodoCandidate, toggleTodoCompleted } from "./timeManagerActions";
 import { boundRange, computeAutoScrollDelta, pointerToSnappedRange, resizeBottomEdge, resizeTopEdge, snapToStep } from "./timeDragMath";
 import { buildQuickPanelItems, removeTodoAfterSchedule } from "./quickPanelState";
@@ -11,7 +11,6 @@ import { computeLaneWidth, computeTimelineUsableWidth } from "./timelineLayout";
 import { getTimelineCardDensity } from "./timelineCardLayout";
 import { getGreetingLabel } from "./timeManagerTheme";
 import { canCreateTodo, removeScheduleWithSnapshot, undoRemovedSchedule } from "./timeManagerSafety";
-import { markdownPlainTextToSanitizedHtml, shouldPreferMarkdownPlainText } from "./pasteMarkdownAdapter";
 import { buildTodoTypesFromTodos, canCreateTodoType, DEFAULT_TODO_TYPE, normalizeTodoType } from "./todoTypeModel";
 
 interface TimeManagerPageProps {
@@ -183,6 +182,16 @@ function computeDurationMinutesFromSchedule(item: ScheduledItem): number {
   return Math.max(MIN_ITEM_MINUTES, toMinutes(item.endHour, item.endMinute) - toMinutes(item.startHour, item.startMinute));
 }
 
+function placeCaretAtEnd(target: HTMLElement): void {
+  const selection = window.getSelection();
+  if (!selection) return;
+  const range = document.createRange();
+  range.selectNodeContents(target);
+  range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
 export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps): JSX.Element {
   const initialNow = useMemo(() => new Date(), []);
   const [currentDateKey, setCurrentDateKey] = useState<string>(formatDateKey(initialNow));
@@ -316,10 +325,10 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     const html = event.clipboardData.getData("text/html");
     const text = event.clipboardData.getData("text/plain");
 
-    if (text && shouldPreferMarkdownPlainText(text)) {
-      document.execCommand("insertHTML", false, sanitizeLightNoteHtml(markdownPlainTextToSanitizedHtml(text)));
+    if (text && isLikelyMarkdown(text)) {
+      document.execCommand("insertHTML", false, sanitizeLightNoteHtml(markdownToSanitizedHtml(text)));
     } else if (html) document.execCommand("insertHTML", false, sanitizeLightNoteHtml(html));
-    else if (text) document.execCommand("insertHTML", false, sanitizeLightNoteHtml(markdownPlainTextToSanitizedHtml(text)));
+    else if (text) document.execCommand("insertHTML", false, sanitizeLightNoteHtml(markdownToSanitizedHtml(text)));
 
     if (!lightNoteEditorRef.current) return;
     setLightNoteHtml(sanitizeLightNoteHtml(lightNoteEditorRef.current.innerHTML));
@@ -916,6 +925,26 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     setDropPreview(null);
   };
 
+  const handleScheduleDragStart = (event: DragEvent<HTMLElement>, scheduleId: string): void => {
+    const source = scheduledItems.find((item) => item.id === scheduleId);
+    if (!source) return;
+
+    const ghost = document.createElement("div");
+    ghost.className = "todo-drag-ghost";
+    ghost.textContent = `${source.title} (${formatTime(source.startHour, source.startMinute)}-${formatTime(source.endHour, source.endMinute)})`;
+    document.body.appendChild(ghost);
+    event.dataTransfer.setDragImage(ghost, 12, 12);
+    setTimeout(() => ghost.remove(), 0);
+
+    event.dataTransfer.setData("application/x-cloudo-schedule-id", scheduleId);
+    event.dataTransfer.effectAllowed = "move";
+    setDraggingScheduleId(scheduleId);
+  };
+
+  const handleScheduleDragEnd = (): void => {
+    setDraggingScheduleId(null);
+  };
+
   const handleTimelineDragOver = (event: DragEvent<HTMLDivElement>): void => {
     event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
@@ -1002,7 +1031,16 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
     });
 
     lightNoteEditorRef.current.focus({ preventScroll: true });
-    document.execCommand("insertHTML", false, html);
+    lightNoteEditorRef.current.insertAdjacentHTML("beforeend", html);
+    placeCaretAtEnd(lightNoteEditorRef.current);
+    setLightNoteHtml(sanitizeLightNoteHtml(lightNoteEditorRef.current.innerHTML));
+  };
+
+  const removeTaskCardFromLightNote = (card: Element): void => {
+    if (!lightNoteEditorRef.current) return;
+    const next = card.nextElementSibling;
+    card.remove();
+    if (next && next.tagName === "P" && !next.textContent?.trim()) next.remove();
     setLightNoteHtml(sanitizeLightNoteHtml(lightNoteEditorRef.current.innerHTML));
   };
 
@@ -1015,6 +1053,18 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
 
     insertTaskCardToLightNote(source);
     setDraggingScheduleId(null);
+  };
+
+  const handleLightNoteMouseDown = (event: ReactMouseEvent<HTMLDivElement>): void => {
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+    const removeTrigger = target.closest(".ln-task-remove");
+    if (!removeTrigger) return;
+    const card = removeTrigger.closest(".ln-task-card");
+    if (!card) return;
+    event.preventDefault();
+    event.stopPropagation();
+    removeTaskCardFromLightNote(card);
   };
 
   const handleTimelineMoveHandleMouseDown = (event: ReactMouseEvent<HTMLElement>, item: ScheduledItem): void => {
@@ -1308,6 +1358,9 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
                   <article
                     key={item.id}
                     className={`timeline-card ${densityClass} ${motionClass} ${doneClass}`.trim()}
+                    draggable
+                    onDragStart={(event) => handleScheduleDragStart(event, item.id)}
+                    onDragEnd={handleScheduleDragEnd}
                     style={{
                       top: `${(start / 60) * PIXELS_PER_HOUR}px`,
                       height: `${(durationMinutes / 60) * PIXELS_PER_HOUR}px`,
@@ -1425,7 +1478,13 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
                     <p className="soft-text">{items.length} 个任务</p>
                     <div className="week-items">
                       {items.slice(0, 4).map((it) => (
-                        <article key={it.id} className="week-item">
+                        <article
+                          key={it.id}
+                          className="week-item"
+                          draggable
+                          onDragStart={(event) => handleScheduleDragStart(event, it.id)}
+                          onDragEnd={handleScheduleDragEnd}
+                        >
                           <span>{it.title}</span>
                           <span className="soft-text">{formatTime(it.startHour, it.startMinute)}-{formatTime(it.endHour, it.endMinute)}</span>
                         </article>
@@ -1445,6 +1504,9 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
                             <article
                               key={`expanded-${it.id}`}
                               className="week-expanded-card"
+                              draggable
+                              onDragStart={(event) => handleScheduleDragStart(event, it.id)}
+                              onDragEnd={handleScheduleDragEnd}
                               onClick={() => {
                                 setSelectedDateKey(key);
                                 setCalendarView("day");
@@ -1523,6 +1585,7 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
             onPaste={handleLightNotePaste}
             onDragOver={(event) => event.preventDefault()}
             onDrop={handleLightNoteDrop}
+            onMouseDown={handleLightNoteMouseDown}
           />
         </section>
       </div>

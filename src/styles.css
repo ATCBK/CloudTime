@@ -901,9 +901,39 @@ button, input, textarea, select { font: inherit; }
   margin: 6px 0;
 }
 
+.ln-task-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .ln-task-title {
   font-weight: 700;
   color: #22385f;
+}
+
+.ln-task-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid #b8c8eb;
+  background: #ffffff;
+  color: #5f6f93;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ln-task-remove:hover {
+  border-color: #7f96cf;
+  color: #243a67;
 }
 
 .ln-task-meta,
@@ -4058,6 +4088,12 @@ html[data-theme="dark"] .time-manager-page .ln-task-card {
   background: #252526 !important;
   border-color: #3c3c3c !important;
   color: #d4d4d4 !important;
+}
+
+html[data-theme="dark"] .time-manager-page .ln-task-remove {
+  border-color: #4e596e !important;
+  background: #2f3340 !important;
+  color: #cfd5e2 !important;
 }
 
 html[data-theme="dark"] .time-manager-page .panel-title-row h3,

@@ -51,7 +51,7 @@ export function buildTaskReferenceCardHtml(payload: TaskReferenceCardPayload): s
   const time = escapeHtml(payload.timeLabel);
   const taskId = escapeHtml(payload.taskId);
 
-  return `<div class="ln-task-card" data-task-id="${taskId}" contenteditable="false"><div class="ln-task-title">${title}</div><div class="ln-task-meta">${project}</div><div class="ln-task-time">${time}</div></div>`;
+  return `<div class="ln-task-card" data-task-id="${taskId}" contenteditable="false"><div class="ln-task-head"><div class="ln-task-title">${title}</div><span class="ln-task-remove" contenteditable="false" title="删除该待办标签">删除</span></div><div class="ln-task-meta">${project}</div><div class="ln-task-time">${time}</div></div>`;
 }
 
 export function buildTaskReferenceDropHtml(payload: TaskReferenceCardPayload): string {
