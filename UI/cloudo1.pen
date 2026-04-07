@@ -1,0 +1,933 @@
+{
+  "version": "2.10",
+  "children": [
+    {
+      "type": "frame",
+      "id": "homeWorkbench",
+      "x": 40,
+      "y": 40,
+      "name": "Cloudo Home Workbench",
+      "width": 1440,
+      "height": 1260,
+      "fill": "#FFFFFF",
+      "layout": "vertical",
+      "gap": 24,
+      "padding": 24,
+      "children": [
+        {
+          "type": "frame",
+          "id": "topArea",
+          "name": "Top Area",
+          "width": "fill_container",
+          "height": 300,
+          "gap": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "sidebar",
+              "name": "Sidebar",
+              "width": 92,
+              "height": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 24,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#000000"
+              },
+              "layout": "vertical",
+              "padding": 16,
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "brand",
+                  "name": "Brand",
+                  "width": 56,
+                  "height": 56,
+                  "fill": "#000000",
+                  "cornerRadius": 18,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "brandText",
+                      "name": "Brand Text",
+                      "fill": "#FFFFFF",
+                      "content": "C",
+                      "fontFamily": "Segoe UI, Arial, sans-serif",
+                      "fontSize": 24,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "sidebarNav",
+                  "name": "Sidebar Nav",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "navA",
+                      "name": "Nav A",
+                      "width": 56,
+                      "height": 56,
+                      "fill": "#000000",
+                      "cornerRadius": 999,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "navATxt",
+                          "name": "Nav A Txt",
+                          "fill": "#FFFFFF",
+                          "content": "HOME",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "navB",
+                      "name": "Nav B",
+                      "width": 56,
+                      "height": 56,
+                      "fill": "#EFEFEF",
+                      "cornerRadius": 999,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "navBTxt",
+                          "name": "Nav B Txt",
+                          "fill": "#000000",
+                          "content": "WB",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "navC",
+                      "name": "Nav C",
+                      "width": 56,
+                      "height": 56,
+                      "fill": "#EFEFEF",
+                      "cornerRadius": 999,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "navCTxt",
+                          "name": "Nav C Txt",
+                          "fill": "#000000",
+                          "content": "NOTE",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 11,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "sidebarBottom",
+                  "name": "Sidebar Bottom",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "navD",
+                      "name": "Nav D",
+                      "width": 56,
+                      "height": 56,
+                      "fill": "#EFEFEF",
+                      "cornerRadius": 999,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "navDTxt",
+                          "name": "Nav D Txt",
+                          "fill": "#000000",
+                          "content": "INBX",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 11,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "navE",
+                      "name": "Nav E",
+                      "width": 56,
+                      "height": 56,
+                      "fill": "#EFEFEF",
+                      "cornerRadius": 999,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "navETxt",
+                          "name": "Nav E Txt",
+                          "fill": "#000000",
+                          "content": "SET",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 12,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "hero",
+              "name": "Hero",
+              "width": 1276,
+              "height": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 24,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#000000"
+              },
+              "layout": "vertical",
+              "gap": 18,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "heroTag",
+                  "name": "Hero Tag",
+                  "fill": "#4B4B4B",
+                  "content": "CURRENT PHASE / SPRING TERM 2026",
+                  "fontFamily": "Segoe UI, Arial, sans-serif",
+                  "fontSize": 12,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "heroTitle",
+                  "name": "Hero Title",
+                  "fill": "#000000",
+                  "content": "Build one workbench for study, product design, and physical rhythm.",
+                  "fontFamily": "Segoe UI, Arial, sans-serif",
+                  "fontSize": 46,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "heroDesc",
+                  "name": "Hero Desc",
+                  "fill": "#4B4B4B",
+                  "content": "This is not a todo list. It is the single line that ties together domain focus, weekly focus, and todays schedule.",
+                  "fontFamily": "Segoe UI, Arial, sans-serif",
+                  "fontSize": 16
+                },
+                {
+                  "type": "frame",
+                  "id": "heroActionRow",
+                  "name": "Hero Action Row",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "heroBtnA",
+                      "name": "Hero Btn A",
+                      "height": 44,
+                      "fill": "#000000",
+                      "cornerRadius": 999,
+                      "padding": [
+                        10,
+                        16
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "heroBtnATxt",
+                          "name": "Hero Btn A Txt",
+                          "fill": "#FFFFFF",
+                          "content": "View Main Line",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 15,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "heroBtnB",
+                      "name": "Hero Btn B",
+                      "height": 44,
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 999,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#000000"
+                      },
+                      "padding": [
+                        10,
+                        16
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "heroBtnBTxt",
+                          "name": "Hero Btn B Txt",
+                          "fill": "#000000",
+                          "content": "Edit Phase",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 15,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "heroCards",
+                  "name": "Hero Cards",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "heroStatus",
+                      "name": "Hero Status",
+                      "width": 356,
+                      "height": 116,
+                      "fill": "#000000",
+                      "cornerRadius": 18,
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 18,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "heroStatusA",
+                          "name": "Hero Status A",
+                          "fill": "#AFAFAF",
+                          "content": "PHASE STATUS / WEEK 07",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 12,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "heroStatusB",
+                          "name": "Hero Status B",
+                          "fill": "#FFFFFF",
+                          "content": "Stable Push",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 30,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "heroStatusC",
+                          "name": "Hero Status C",
+                          "fill": "#EFEFEF",
+                          "content": "Key consolidation window in a 16 week cycle.",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 13
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "heroMetrics",
+                      "name": "Hero Metrics",
+                      "width": 520,
+                      "height": 116,
+                      "fill": "#EFEFEF",
+                      "cornerRadius": 18,
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 18,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "heroMetricsA",
+                          "name": "Hero Metrics A",
+                          "fill": "#000000",
+                          "content": "Cycle 16 weeks / Domains 4",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 15,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "heroMetricsB",
+                          "name": "Hero Metrics B",
+                          "fill": "#000000",
+                          "content": "Weekly lines 4 / Today anchors 3",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 15,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "heroMetricsC",
+                          "name": "Hero Metrics C",
+                          "fill": "#4B4B4B",
+                          "content": "Protect the line first, then refine details.",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 14
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "heroFocus",
+                      "name": "Hero Focus",
+                      "width": 352,
+                      "height": 116,
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 18,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#000000"
+                      },
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 18,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "heroFocusA",
+                          "name": "Hero Focus A",
+                          "fill": "#4B4B4B",
+                          "content": "TODAY FOCUS",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 12,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "heroFocusB",
+                          "name": "Hero Focus B",
+                          "fill": "#000000",
+                          "content": "If only one thing ships today, it should belong to this weeks main line.",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 18,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "domains",
+          "name": "Domains",
+          "width": "fill_container",
+          "height": 236,
+          "fill": "#FFFFFF",
+          "cornerRadius": 24,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "#000000"
+          },
+          "layout": "vertical",
+          "gap": 18,
+          "padding": 24,
+          "children": [
+            {
+              "type": "text",
+              "id": "domainsTitle",
+              "name": "Domains Title",
+              "fill": "#000000",
+              "content": "Priority Domains",
+              "fontFamily": "Segoe UI, Arial, sans-serif",
+              "fontSize": 30,
+              "fontWeight": "700"
+            },
+            {
+              "type": "frame",
+              "id": "domainsRow",
+              "name": "Domains Row",
+              "gap": 14,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "domainLearn",
+                  "name": "Domain Learn",
+                  "width": 332,
+                  "height": 130,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 18,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#000000"
+                  },
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "domainLearnA",
+                      "name": "Domain Learn A",
+                      "fill": "#4B4B4B",
+                      "content": "Learning",
+                      "fontFamily": "Segoe UI, Arial, sans-serif",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "domainLearnB",
+                      "name": "Domain Learn B",
+                      "fill": "#000000",
+                      "content": "Create a reusable study rhythm for math prep.",
+                      "fontFamily": "Segoe UI, Arial, sans-serif",
+                      "fontSize": 18,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "domainOut",
+                  "name": "Domain Out",
+                  "width": 332,
+                  "height": 130,
+                  "fill": "#000000",
+                  "cornerRadius": 18,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "domainOutA",
+                      "name": "Domain Out A",
+                      "fill": "#AFAFAF",
+                      "content": "Output",
+                      "fontFamily": "Segoe UI, Arial, sans-serif",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "domainOutB",
+                      "name": "Domain Out B",
+                      "fill": "#FFFFFF",
+                      "content": "Turn product thinking into structured notes.",
+                      "fontFamily": "Segoe UI, Arial, sans-serif",
+                      "fontSize": 18,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "domainProject",
+                  "name": "Domain Project",
+                  "width": 332,
+                  "height": 130,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 18,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#000000"
+                  },
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "domainProjectA",
+                      "name": "Domain Project A",
+                      "fill": "#4B4B4B",
+                      "content": "Project",
+                      "fontFamily": "Segoe UI, Arial, sans-serif",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "domainProjectB",
+                      "name": "Domain Project B",
+                      "fill": "#000000",
+                      "content": "Make the home page a main-line-first workbench.",
+                      "fontFamily": "Segoe UI, Arial, sans-serif",
+                      "fontSize": 18,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "domainHealth",
+                  "name": "Domain Health",
+                  "width": 332,
+                  "height": 130,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 18,
+                  "stroke": {
+                    "align": "inside",
+                    "thickness": 1,
+                    "fill": "#000000"
+                  },
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "domainHealthA",
+                      "name": "Domain Health A",
+                      "fill": "#4B4B4B",
+                      "content": "Health",
+                      "fontFamily": "Segoe UI, Arial, sans-serif",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "domainHealthB",
+                      "name": "Domain Health B",
+                      "fill": "#000000",
+                      "content": "Recover a sustainable physical schedule.",
+                      "fontFamily": "Segoe UI, Arial, sans-serif",
+                      "fontSize": 18,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "weekAndDay",
+          "name": "Week And Day",
+          "width": "fill_container",
+          "height": 600,
+          "gap": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "weekPanel",
+              "name": "Week Panel",
+              "width": 420,
+              "height": "fill_container",
+              "fill": "#000000",
+              "cornerRadius": 24,
+              "layout": "vertical",
+              "gap": 12,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "weekPanelTitle",
+                  "name": "Week Panel Title",
+                  "fill": "#FFFFFF",
+                  "content": "Weekly Main Lines",
+                  "fontFamily": "Segoe UI, Arial, sans-serif",
+                  "fontSize": 30,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "weekPanelA",
+                  "name": "Week Panel A",
+                  "fill": "#EFEFEF",
+                  "content": "Learning 72% / finish first pass of limit topic pack",
+                  "fontFamily": "Segoe UI, Arial, sans-serif",
+                  "fontSize": 15,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "weekPanelB",
+                  "name": "Week Panel B",
+                  "fill": "#EFEFEF",
+                  "content": "Project 45% / lock the Cloudo home information structure",
+                  "fontFamily": "Segoe UI, Arial, sans-serif",
+                  "fontSize": 15,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "weekPanelC",
+                  "name": "Week Panel C",
+                  "fill": "#EFEFEF",
+                  "content": "Output 28% / finish the workbench design note",
+                  "fontFamily": "Segoe UI, Arial, sans-serif",
+                  "fontSize": 15,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "weekPanelD",
+                  "name": "Week Panel D",
+                  "fill": "#EFEFEF",
+                  "content": "Health 50% / reconnect evening walks to the routine",
+                  "fontFamily": "Segoe UI, Arial, sans-serif",
+                  "fontSize": 15,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "text",
+                  "id": "weekPanelE",
+                  "name": "Week Panel E",
+                  "fill": "#FFFFFF",
+                  "content": "Pulse / 3 lines have already entered todays schedule",
+                  "fontFamily": "Segoe UI, Arial, sans-serif",
+                  "fontSize": 18,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "dayPanel",
+              "name": "Day Panel",
+              "width": 996,
+              "height": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 24,
+              "stroke": {
+                "align": "inside",
+                "thickness": 1,
+                "fill": "#000000"
+              },
+              "layout": "vertical",
+              "gap": 18,
+              "padding": 24,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "dayPanelTitle",
+                  "name": "Day Panel Title",
+                  "fill": "#000000",
+                  "content": "Today Workbench",
+                  "fontFamily": "Segoe UI, Arial, sans-serif",
+                  "fontSize": 30,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "dayPanelGrid",
+                  "name": "Day Panel Grid",
+                  "gap": 14,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "dayTodo",
+                      "name": "Day Todo",
+                      "width": 280,
+                      "height": 480,
+                      "fill": "#EFEFEF",
+                      "cornerRadius": 18,
+                      "layout": "vertical",
+                      "gap": 10,
+                      "padding": 18,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "dayTodoTitle",
+                          "name": "Day Todo Title",
+                          "fill": "#000000",
+                          "content": "To Place Today",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 22,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "dayTodoA",
+                          "name": "Day Todo A",
+                          "fill": "#000000",
+                          "content": "Learning / sort topic pack A, 90 min",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 14,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "dayTodoB",
+                          "name": "Day Todo B",
+                          "fill": "#000000",
+                          "content": "Project / confirm hierarchy of hero and domains",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 14,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "dayTodoC",
+                          "name": "Day Todo C",
+                          "fill": "#000000",
+                          "content": "Output / structure the home IA note",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 14,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "dayTodoD",
+                          "name": "Day Todo D",
+                          "fill": "#000000",
+                          "content": "Health / 35 min evening walk",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 14,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "dayTimeline",
+                      "name": "Day Timeline",
+                      "width": 396,
+                      "height": 480,
+                      "fill": "#000000",
+                      "cornerRadius": 18,
+                      "layout": "vertical",
+                      "gap": 10,
+                      "padding": 18,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "dayTimelineTitle",
+                          "name": "Day Timeline Title",
+                          "fill": "#FFFFFF",
+                          "content": "Real Time Today",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 22,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "dayTimelineA",
+                          "name": "Day Timeline A",
+                          "fill": "#EFEFEF",
+                          "content": "08:20 - 09:50 / limit topic review",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 14,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "dayTimelineB",
+                          "name": "Day Timeline B",
+                          "fill": "#EFEFEF",
+                          "content": "10:30 - 11:45 / hero wireframe lock",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 14,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "dayTimelineC",
+                          "name": "Day Timeline C",
+                          "fill": "#EFEFEF",
+                          "content": "14:10 - 15:10 / structure note draft",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 14,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "dayTimelineD",
+                          "name": "Day Timeline D",
+                          "fill": "#EFEFEF",
+                          "content": "20:30 - 21:05 / evening walk",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 14,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "dayNotes",
+                      "name": "Day Notes",
+                      "width": 278,
+                      "height": 480,
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 18,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#000000"
+                      },
+                      "layout": "vertical",
+                      "gap": 10,
+                      "padding": 18,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "dayNotesTitle",
+                          "name": "Day Notes Title",
+                          "fill": "#000000",
+                          "content": "Live Notes",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 22,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "dayNotesA",
+                          "name": "Day Notes A",
+                          "fill": "#4B4B4B",
+                          "content": "Do not add more tasks. Protect the morning study block and the pre noon structure lock.",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 14
+                        },
+                        {
+                          "type": "text",
+                          "id": "dayNotesB",
+                          "name": "Day Notes B",
+                          "fill": "#000000",
+                          "content": "Pool / main-line system design note",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "dayNotesC",
+                          "name": "Day Notes C",
+                          "fill": "#000000",
+                          "content": "Pool / prep rhythm observation",
+                          "fontFamily": "Segoe UI, Arial, sans-serif",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

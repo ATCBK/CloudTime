@@ -21,6 +21,8 @@ if (typeof window !== "undefined" && !window.cloudo) {
     setDynamicHotkeys: async () => ({ ok: true }),
     getStorageBaseDir: async () => "D:/Project_building/Clouddo1/CloudTime",
     listDiskMarkdownNotes: async () => [],
+    loadNotesSnapshot: async () => null,
+    saveNotesSnapshot: async () => ({ ok: true, savedCount: 0 }),
     onQuickPanelState: noopUnsub,
     onQuickPanelToggleTask: noopUnsub,
     onQuickCreateFocus: noopUnsub

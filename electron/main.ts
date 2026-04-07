@@ -21,6 +21,16 @@ type DiskMarkdownNote = {
   updatedAt: number;
 };
 
+type NotesFileSnapshot = {
+  folders: unknown[];
+  notes: unknown[];
+  selectedFolderId: string;
+  currentNoteId: string;
+  expandedIds: string[];
+  commentsByNote: Record<string, unknown[]>;
+  savedAt: number;
+};
+
 const MAX_NOTE_FILE_SIZE_BYTES = 2 * 1024 * 1024;
 
 let mainWindow: BrowserWindow | null = null;
@@ -200,6 +210,58 @@ async function ensureDataDirs(): Promise<string> {
   return baseDir;
 }
 
+function sanitizePathSegment(segment: string, fallback: string): string {
+  const cleaned = (segment || "")
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || fallback;
+}
+
+function normalizeDiskEntry(entry: DiskMarkdownNote, index: number): DiskMarkdownNote {
+  const parts = (entry.relativeDir || "")
+    .split(/[\\/]+/)
+    .map((part) => sanitizePathSegment(part, `folder-${index + 1}`))
+    .filter(Boolean);
+  const fileStem = sanitizePathSegment((entry.fileName || "").replace(/\.md$/i, ""), `note-${index + 1}`);
+  return {
+    relativeDir: parts.join(path.sep),
+    fileName: `${fileStem}.md`,
+    content: entry.content || "",
+    updatedAt: entry.updatedAt || Date.now()
+  };
+}
+
+async function upsertDiskMarkdownFiles(notesDir: string, entries: DiskMarkdownNote[]): Promise<number> {
+  let savedCount = 0;
+  for (let i = 0; i < entries.length; i += 1) {
+    const normalized = normalizeDiskEntry(entries[i], i);
+    const targetDir = normalized.relativeDir ? path.join(notesDir, normalized.relativeDir) : notesDir;
+    await fs.mkdir(targetDir, { recursive: true });
+    await fs.writeFile(path.join(targetDir, normalized.fileName), normalized.content, "utf8");
+    savedCount += 1;
+  }
+  return savedCount;
+}
+
+async function loadNotesSnapshot(baseDir: string): Promise<NotesFileSnapshot | null> {
+  const snapshotPath = path.join(baseDir, "data", "notes-snapshot.json");
+  try {
+    const raw = await fs.readFile(snapshotPath, "utf8");
+    return JSON.parse(raw) as NotesFileSnapshot;
+  } catch {
+    return null;
+  }
+}
+
+async function saveNotesSnapshot(baseDir: string, snapshot: NotesFileSnapshot, diskEntries: DiskMarkdownNote[]): Promise<number> {
+  const snapshotPath = path.join(baseDir, "data", "notes-snapshot.json");
+  const notesDir = path.join(baseDir, "Notes");
+  await fs.mkdir(path.dirname(snapshotPath), { recursive: true });
+  await fs.writeFile(snapshotPath, JSON.stringify(snapshot, null, 2), "utf8");
+  return upsertDiskMarkdownFiles(notesDir, diskEntries);
+}
+
 async function readMarkdownFiles(dir: string, relativeDir: string = ""): Promise<DiskMarkdownNote[]> {
   const entries = await fs.readdir(dir, { withFileTypes: true });
   const files: DiskMarkdownNote[] = [];
@@ -304,4 +366,27 @@ ipcMain.handle("notes:listDiskMarkdown", async () => {
   } catch {
     return [];
   }
+});
+
+ipcMain.handle("notes:loadSnapshot", async () => {
+  const baseDir = await ensureDataDirs();
+  return loadNotesSnapshot(baseDir);
+});
+
+ipcMain.handle("notes:saveSnapshot", async (_event, payload: NotesFileSnapshot & { diskEntries: DiskMarkdownNote[] }) => {
+  const baseDir = await ensureDataDirs();
+  const savedCount = await saveNotesSnapshot(
+    baseDir,
+    {
+      folders: Array.isArray(payload?.folders) ? payload.folders : [],
+      notes: Array.isArray(payload?.notes) ? payload.notes : [],
+      selectedFolderId: typeof payload?.selectedFolderId === "string" ? payload.selectedFolderId : "",
+      currentNoteId: typeof payload?.currentNoteId === "string" ? payload.currentNoteId : "",
+      expandedIds: Array.isArray(payload?.expandedIds) ? payload.expandedIds : [],
+      commentsByNote: payload?.commentsByNote && typeof payload.commentsByNote === "object" ? payload.commentsByNote : {},
+      savedAt: typeof payload?.savedAt === "number" ? payload.savedAt : Date.now()
+    },
+    Array.isArray(payload?.diskEntries) ? payload.diskEntries : []
+  );
+  return { ok: true, savedCount };
 });

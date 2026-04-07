@@ -37,6 +37,7 @@ import { resolveNextCurrentNoteId } from "./noteSelection";
 import { CONTEXT_SELECTION_ACTIONS, FLOATING_SELECTION_ACTIONS, SELECTION_BLOCK_MENU_COMPACT, SelectionActionId } from "./notesSelectionActions";
 import { buildNotesImportModel, FolderNode, RichNote } from "./notesDiskImport";
 import { isLikelyMarkdown, markdownToSanitizedHtml, sanitizeNoteEditorHtml, sanitizePastedHtml } from "./markdownCore";
+import { buildDiskNoteEntries } from "../services/mdStorage";
 
 interface NotesPageProps {
   notes: NoteDocument[];
@@ -217,6 +218,16 @@ function findFolderPathNames(nodes: FolderNode[], id: string, path: string[] = [
   return null;
 }
 
+function hasLocalNotesState(): boolean {
+  if (typeof window === "undefined") return false;
+  return [
+    "cloudo.notes.tree",
+    "cloudo.notes.richList",
+    "cloudo.notes.currentNote",
+    "cloudo.notes.commentsByNote"
+  ].some((key) => window.localStorage.getItem(key) !== null);
+}
+
 function flattenFolderIds(nodes: FolderNode[]): string[] {
   return nodes.flatMap((node) => [node.id, ...flattenFolderIds(node.children)]);
 }
@@ -395,6 +406,9 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
   const tocSyncRafRef = useRef<number | null>(null);
   const tocSyncTimerRef = useRef<number | null>(null);
   const leftPaneMigratedRef = useRef<boolean>(false);
+  const diskSaveTimerRef = useRef<number | null>(null);
+  const diskDirtyRef = useRef<boolean>(false);
+  const loadedDiskSnapshotRef = useRef<boolean>(false);
 
   const [commentsByNote, setCommentsByNote] = useLocalStorageState<Record<string, NoteComment[]>>("cloudo.notes.commentsByNote", {});
 
@@ -435,6 +449,84 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     const folderPath = findFolderPathNames(folders, currentNote.folderId) ?? [];
     return [...folderPath, currentNote.title].join(" > ");
   }, [currentNote, folders]);
+
+  const markDiskDirty = useCallback((): void => {
+    diskDirtyRef.current = true;
+  }, []);
+
+  const buildDiskSnapshotPayload = useCallback(() => {
+    const diskEntries = buildDiskNoteEntries(
+      noteList.map((note) => ({
+        title: note.title,
+        contentHtml: note.contentHtml,
+        folderPath: findFolderPathNames(folders, note.folderId) ?? [],
+        updatedAt: note.updatedAt
+      }))
+    );
+
+    return {
+      folders,
+      notes: noteList,
+      selectedFolderId,
+      currentNoteId,
+      expandedIds,
+      commentsByNote,
+      savedAt: Date.now(),
+      diskEntries
+    };
+  }, [commentsByNote, currentNoteId, expandedIds, folders, noteList, selectedFolderId]);
+
+  useEffect(() => {
+    if (loadedDiskSnapshotRef.current) return;
+    loadedDiskSnapshotRef.current = true;
+    if (hasLocalNotesState()) return;
+
+    window.cloudo
+      .loadNotesSnapshot()
+      .then((snapshot) => {
+        if (!snapshot) return;
+        const nextFolders = Array.isArray(snapshot.folders) ? (snapshot.folders as FolderNode[]) : [];
+        const nextNotes = Array.isArray(snapshot.notes) ? (snapshot.notes as RichNote[]) : [];
+        if (nextFolders.length > 0) setFolders(nextFolders);
+        if (nextNotes.length > 0) setNoteList(nextNotes);
+        if (Array.isArray(snapshot.expandedIds)) setExpandedIds(snapshot.expandedIds);
+        if (typeof snapshot.selectedFolderId === "string" && snapshot.selectedFolderId) setSelectedFolderId(snapshot.selectedFolderId);
+        if (typeof snapshot.currentNoteId === "string" && snapshot.currentNoteId) setCurrentNoteId(snapshot.currentNoteId);
+        if (snapshot.commentsByNote && typeof snapshot.commentsByNote === "object") {
+          setCommentsByNote(snapshot.commentsByNote as Record<string, NoteComment[]>);
+        }
+        setSaveText("已从本地文件恢复");
+      })
+      .catch(() => {
+        setSaveText("本地文件恢复失败");
+      });
+  }, [setCommentsByNote, setCurrentNoteId, setExpandedIds, setFolders, setNoteList, setSelectedFolderId]);
+
+  useEffect(() => {
+    if (!diskDirtyRef.current) return;
+    if (diskSaveTimerRef.current !== null) window.clearTimeout(diskSaveTimerRef.current);
+
+    diskSaveTimerRef.current = window.setTimeout(() => {
+      const payload = buildDiskSnapshotPayload();
+      void window.cloudo
+        .saveNotesSnapshot(payload)
+        .then(({ savedCount }) => {
+          diskDirtyRef.current = false;
+          setSaveText(`已保存到本地文件 (${savedCount})`);
+        })
+        .catch(() => {
+          setSaveText("本地文件保存失败");
+        });
+      diskSaveTimerRef.current = null;
+    }, 800);
+
+    return () => {
+      if (diskSaveTimerRef.current !== null) {
+        window.clearTimeout(diskSaveTimerRef.current);
+        diskSaveTimerRef.current = null;
+      }
+    };
+  }, [buildDiskSnapshotPayload, commentsByNote, currentNoteId, expandedIds, folders, noteList, selectedFolderId]);
 
   useEffect(() => {
     if (folders.length === 0) {
@@ -715,6 +807,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
   const flushPendingSave = useCallback((): void => {
     const pending = pendingSaveRef.current;
     if (!pending) return;
+    markDiskDirty();
     setNoteList((prev) =>
       prev.map((n) => (n.id === pending.noteId ? { ...n, contentHtml: pending.html, updatedAt: Date.now() } : n))
     );
@@ -805,6 +898,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     const rootNames = folders.map((f) => f.name);
     const name = nextName("新文件夹", rootNames);
     const folder: FolderNode = { id: genId("folder"), name, children: [] };
+    markDiskDirty();
     setFolders((prev) => [...prev, folder]);
     setSelectedFolderId(folder.id);
   };
@@ -814,6 +908,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     const siblingNames = parent?.children.map((c) => c.name) ?? [];
     const name = nextName("新建文件夹", siblingNames);
     const folder: FolderNode = { id: genId("folder"), name, children: [] };
+    markDiskDirty();
     setFolders((prev) => insertChild(prev, folderId, folder));
     setExpandedIds((prev) => (prev.includes(folderId) ? prev : [...prev, folderId]));
     setSelectedFolderId(folder.id);
@@ -834,6 +929,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
       setRenamingFolderDraft("");
       return;
     }
+    markDiskDirty();
     setFolders((prev) => renameFolderTree(prev, renamingFolderId, nextName));
     setRenamingFolderId("");
     setRenamingFolderDraft("");
@@ -853,6 +949,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     const result = removeNode(folders, folderId);
     if (result.next.length === 0) return;
 
+    markDiskDirty();
     setFolders(result.next);
     setExpandedIds((prev) => prev.filter((id) => !removedSet.has(id)));
     setNoteList((prev) => prev.filter((note) => !removedSet.has(note.folderId)));
@@ -871,6 +968,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
       updatedAt: Date.now()
     };
 
+    markDiskDirty();
     setNoteList((prev) => [...prev, note]);
     setCurrentNoteId(note.id);
     setSelectedFolderId(folderId);
@@ -890,6 +988,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
   const commitRenameNote = (): void => {
     if (!renamingNoteId) return;
     const nextTitle = ensureMdFileName(renamingDraft);
+    markDiskDirty();
     setNoteList((prev) => prev.map((note) => (note.id === renamingNoteId ? { ...note, title: nextTitle } : note)));
     setRenamingNoteId("");
     setRenamingDraft("");
@@ -904,6 +1003,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     const target = noteList.find((note) => note.id === noteId);
     if (!target) return;
     if (!window.confirm(`删除文件 ${target.title} ?`)) return;
+    markDiskDirty();
     setNoteList((prev) => prev.filter((note) => note.id !== noteId));
   };
 
@@ -946,6 +1046,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
       const removed = removeNode(folders, clipboard.node.id);
       if (!removed.removedNode) return;
       const next = insertChild(removed.next, targetFolderId, removed.removedNode);
+      markDiskDirty();
       setFolders(next);
       setExpandedIds((prev) => (prev.includes(targetFolderId) ? prev : [...prev, targetFolderId]));
       setSelectedFolderId(removed.removedNode.id);
@@ -956,6 +1057,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
 
     const map = new Map<string, string>();
     const cloned = cloneFolderWithMap(clipboard.node, map);
+    markDiskDirty();
     setFolders((prev) => insertChild(prev, targetFolderId, cloned));
     setExpandedIds((prev) => (prev.includes(targetFolderId) ? prev : [...prev, targetFolderId]));
     setSelectedFolderId(cloned.id);
@@ -1061,6 +1163,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
       }
 
       const model = buildNotesImportModel(entries, markdownToSanitizedHtml);
+      markDiskDirty();
       setFolders(model.folders);
       setExpandedIds(model.expandedFolderIds);
       setSelectedFolderId(model.selectedFolderId);
@@ -1072,7 +1175,37 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     }
   };
 
-  const manualRefresh = (): void => {
+  const saveNotesToDiskNow = async (): Promise<void> => {
+    flushPendingSave();
+    const payload = buildDiskSnapshotPayload();
+    try {
+      const result = await window.cloudo.saveNotesSnapshot(payload);
+      diskDirtyRef.current = false;
+      setSaveText(`已手动保存到本地文件 (${result.savedCount})`);
+    } catch {
+      setSaveText("手动保存失败");
+    }
+  };
+
+  const manualRefresh = async (): Promise<void> => {
+    try {
+      const snapshot = await window.cloudo.loadNotesSnapshot();
+      if (snapshot) {
+        if (Array.isArray(snapshot.folders) && snapshot.folders.length > 0) setFolders(snapshot.folders as FolderNode[]);
+        if (Array.isArray(snapshot.notes) && snapshot.notes.length > 0) setNoteList(snapshot.notes as RichNote[]);
+        if (Array.isArray(snapshot.expandedIds)) setExpandedIds(snapshot.expandedIds);
+        if (typeof snapshot.selectedFolderId === "string" && snapshot.selectedFolderId) setSelectedFolderId(snapshot.selectedFolderId);
+        if (typeof snapshot.currentNoteId === "string" && snapshot.currentNoteId) setCurrentNoteId(snapshot.currentNoteId);
+        if (snapshot.commentsByNote && typeof snapshot.commentsByNote === "object") {
+          setCommentsByNote(snapshot.commentsByNote as Record<string, NoteComment[]>);
+        }
+        setSaveText("已从本地文件刷新");
+        return;
+      }
+    } catch {
+      setSaveText("本地文件刷新失败，已回退到浏览器存储");
+    }
+
     const parse = <T,>(key: string): T | null => {
       try {
         const raw = window.localStorage.getItem(key);
@@ -1088,6 +1221,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     const nextPaneWidth = parse<number>("cloudo.notes.leftPaneWidth");
     const nextNotes = parse<RichNote[]>("cloudo.notes.richList");
     const nextCurrentNote = parse<string>("cloudo.notes.currentNote");
+    const nextComments = parse<Record<string, NoteComment[]>>("cloudo.notes.commentsByNote");
 
     if (nextFolders) setFolders(nextFolders);
     if (nextExpanded) setExpandedIds(nextExpanded);
@@ -1095,7 +1229,8 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     if (typeof nextPaneWidth === "number") setLeftPaneWidth(Math.min(nextPaneWidth, LEGACY_LEFT_PANE_MAX));
     if (nextNotes) setNoteList(nextNotes);
     if (nextCurrentNote) setCurrentNoteId(nextCurrentNote);
-    setSaveText("已刷新");
+    if (nextComments) setCommentsByNote(nextComments);
+    setSaveText("已从浏览器存储刷新");
   };
 
   const toggleTocNode = (tocId: string): void => {
@@ -1183,6 +1318,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
     }
 
     const item: NoteComment = { id: commentId, text, createdAt: Date.now(), quote };
+    markDiskDirty();
     setCommentsByNote((prev) => {
       const list = prev[currentNoteId] || [];
       return { ...prev, [currentNoteId]: [item, ...list] };
@@ -1245,6 +1381,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
 
   const deleteComment = (commentId: string): void => {
     if (!currentNoteId) return;
+    markDiskDirty();
     setCommentsByNote((prev) => {
       const list = prev[currentNoteId] || [];
       return { ...prev, [currentNoteId]: list.filter((item) => item.id !== commentId) };
@@ -1792,6 +1929,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
         </div>
         <div className="notes-meta-right">
           <span className="meta-chip">字数: {wordCount}</span>
+          <button type="button" className="tiny-btn" onClick={() => void saveNotesToDiskNow()}>保存到本地</button>
           <button type="button" className="tiny-btn" onClick={copyAllText}>全文复制</button>
         </div>
       </header>
@@ -1818,7 +1956,7 @@ export function NotesPage({ notes, baseDir }: NotesPageProps): JSX.Element {
                 <button type="button" className="icon-btn large" title="新建文件夹" onClick={createRootFolder}>
                   <FolderPlus size={18} />
                 </button>
-                <button type="button" className="icon-btn large" title="刷新" onClick={manualRefresh}>
+                <button type="button" className="icon-btn large" title="刷新" onClick={() => void manualRefresh()}>
                   <RefreshCw size={18} />
                 </button>
                 <button type="button" className="icon-btn large" title="导入" onClick={() => void importNotesFromDisk()}>

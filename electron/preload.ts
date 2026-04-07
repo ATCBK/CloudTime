@@ -25,6 +25,23 @@ interface DiskMarkdownNote {
   updatedAt: number;
 }
 
+interface NoteComment {
+  id: string;
+  text: string;
+  createdAt: number;
+  quote?: string;
+}
+
+interface NotesFileSnapshot {
+  folders: unknown[];
+  notes: unknown[];
+  selectedFolderId: string;
+  currentNoteId: string;
+  expandedIds: string[];
+  commentsByNote: Record<string, NoteComment[]>;
+  savedAt: number;
+}
+
 const api = {
   setWindowOpacity: (value: number) => ipcRenderer.invoke("window:setOpacity", value),
   toggleWindow: () => ipcRenderer.invoke("window:toggle"),
@@ -36,6 +53,9 @@ const api = {
   setDynamicHotkeys: (payload: DynamicHotkeys): Promise<{ ok: boolean; message?: string }> => ipcRenderer.invoke("hotkeys:setDynamic", payload),
   getStorageBaseDir: (): Promise<string> => ipcRenderer.invoke("storage:getBaseDir"),
   listDiskMarkdownNotes: (): Promise<DiskMarkdownNote[]> => ipcRenderer.invoke("notes:listDiskMarkdown"),
+  loadNotesSnapshot: (): Promise<NotesFileSnapshot | null> => ipcRenderer.invoke("notes:loadSnapshot"),
+  saveNotesSnapshot: (payload: NotesFileSnapshot & { diskEntries: DiskMarkdownNote[] }): Promise<{ ok: boolean; savedCount: number }> =>
+    ipcRenderer.invoke("notes:saveSnapshot", payload),
   onQuickPanelState: (handler: (items: QuickPanelItem[]) => void): (() => void) => {
     const wrapped = (_event: Electron.IpcRendererEvent, items: QuickPanelItem[]): void => handler(items);
     ipcRenderer.on("quick-panel:state", wrapped);

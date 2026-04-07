@@ -25,6 +25,23 @@ interface DiskMarkdownNote {
   updatedAt: number;
 }
 
+interface NoteComment {
+  id: string;
+  text: string;
+  createdAt: number;
+  quote?: string;
+}
+
+interface NotesFileSnapshot {
+  folders: unknown[];
+  notes: unknown[];
+  selectedFolderId: string;
+  currentNoteId: string;
+  expandedIds: string[];
+  commentsByNote: Record<string, NoteComment[]>;
+  savedAt: number;
+}
+
 declare global {
   interface Window {
     cloudo: {
@@ -38,6 +55,8 @@ declare global {
       setDynamicHotkeys: (payload: DynamicHotkeys) => Promise<{ ok: boolean; message?: string }>;
       getStorageBaseDir: () => Promise<string>;
       listDiskMarkdownNotes: () => Promise<DiskMarkdownNote[]>;
+      loadNotesSnapshot: () => Promise<NotesFileSnapshot | null>;
+      saveNotesSnapshot: (payload: NotesFileSnapshot & { diskEntries: DiskMarkdownNote[] }) => Promise<{ ok: boolean; savedCount: number }>;
       onQuickPanelState: (handler: (items: QuickPanelItem[]) => void) => () => void;
       onQuickPanelToggleTask: (handler: (todoId: string) => void) => () => void;
       onQuickCreateFocus: (handler: () => void) => () => void;
