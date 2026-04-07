@@ -70,7 +70,7 @@ function toClock(totalMinutes: number): { hour: number; minute: number } {
 }
 
 function formatTime(hour: number, minute: number): string {
-  return `${hour}:${minute.toString().padStart(2, "0")}`;
+  return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
 }
 
 function generateId(): string {
@@ -354,10 +354,15 @@ export function TimeManagerPage({ todos, timelineItems }: TimeManagerPageProps):
   }, [quickPanelItems]);
 
   useEffect(() => {
+    // 仅在首次挂载时设置今天的日期
     const today = formatDateKey(new Date());
     setCurrentDateKey(today);
-    setSelectedDateKey(today);
-  }, [setSelectedDateKey]);
+    // 只在 selectedDateKey 为空或无效时才设置为今天
+    if (!selectedDateKey || !isValidDateKey(selectedDateKey)) {
+      setSelectedDateKey(today);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 仅在挂载时执行一次
 
   useEffect(() => {
     const focusCreate = (): void => {

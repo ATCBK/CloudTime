@@ -1,6 +1,8 @@
 import { marked } from "marked";
 import sanitizeHtml from "sanitize-html";
 
+type Attribs = Record<string, string>;
+
 const BASE_ALLOWED_TAGS = [
   "p",
   "br",
@@ -145,7 +147,7 @@ export function sanitizePastedHtml(html: string, plainText: string, options?: Sa
     transformTags: {
       b: "strong",
       i: "em",
-      a: (tagName, attribs) => ({
+      a: (tagName: string, attribs: Record<string, string>) => ({
         tagName,
         attribs: {
           href: normalizeHref(attribs.href),
@@ -153,10 +155,10 @@ export function sanitizePastedHtml(html: string, plainText: string, options?: Sa
           rel: "noopener noreferrer"
         }
       }),
-      input: (tagName, attribs) => {
-        if (!allowTaskCheckbox) return { tagName: "span", text: "" };
+      input: (tagName: string, attribs: Record<string, string>) => {
+        if (!allowTaskCheckbox) return { tagName: "span", attribs: {}, text: "" };
         const type = (attribs.type || "").toLowerCase();
-        if (type !== "checkbox") return { tagName: "span", text: "" };
+        if (type !== "checkbox") return { tagName: "span", attribs: {}, text: "" };
         return {
           tagName,
           attribs: {
@@ -221,7 +223,7 @@ export function sanitizeLightNoteHtml(input: string): string {
     transformTags: {
       b: "strong",
       i: "em",
-      a: (tagName, attribs) => ({
+      a: (tagName: string, attribs: Attribs) => ({
         tagName,
         attribs: {
           href: normalizeHref(attribs.href),
@@ -229,9 +231,9 @@ export function sanitizeLightNoteHtml(input: string): string {
           rel: "noopener noreferrer"
         }
       }),
-      input: (tagName, attribs) => {
+      input: (tagName: string, attribs: Attribs) => {
         const type = (attribs.type || "").toLowerCase();
-        if (type !== "checkbox") return { tagName: "span", text: "" };
+        if (type !== "checkbox") return { tagName: "span", attribs: {}, text: "" };
         return {
           tagName,
           attribs: {
@@ -241,7 +243,7 @@ export function sanitizeLightNoteHtml(input: string): string {
           }
         };
       },
-      div: (tagName, attribs) => {
+      div: (tagName: string, attribs: Attribs) => {
         const next: Record<string, string> = {};
         if (attribs.class && /^ln-[a-z0-9-\s]+$/i.test(attribs.class)) next.class = attribs.class;
         if (attribs["data-task-id"] && /^[a-zA-Z0-9_-]+$/.test(attribs["data-task-id"])) next["data-task-id"] = attribs["data-task-id"];
@@ -250,7 +252,7 @@ export function sanitizeLightNoteHtml(input: string): string {
         }
         return { tagName, attribs: next };
       },
-      span: (tagName, attribs) => {
+      span: (tagName: string, attribs: Attribs) => {
         const next: Record<string, string> = {};
         if (attribs.class && /^ln-[a-z0-9-\s]+$/i.test(attribs.class)) next.class = attribs.class;
         if (attribs["data-task-id"] && /^[a-zA-Z0-9_-]+$/.test(attribs["data-task-id"])) next["data-task-id"] = attribs["data-task-id"];

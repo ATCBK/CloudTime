@@ -26,6 +26,7 @@ export interface NoteDocument {
   title: string;
   date: string;
   content: string;
+  updatedAt?: number;
 }
 
 export interface AppSettings {

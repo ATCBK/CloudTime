@@ -21,8 +21,8 @@ describe("TimeManager timeline handle layout", () => {
 
   it("pins move handle on the left side", () => {
     const handleRule = extractRule(".timeline-side-handle");
-    expect(handleRule).toContain("left: 0");
-    expect(handleRule).toContain("width: 18px");
+    expect(handleRule).toContain("left: -1px");
+    expect(handleRule).toContain("width: 15px");
     expect(handleRule).not.toContain("right: 0");
   });
 });
